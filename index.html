@@ -1663,6 +1663,19 @@
       );
     }
 
+    async function refreshCloudSession() {
+      if (!cloudClient) {
+        cloudUser = null;
+        return null;
+      }
+      const { data, error } = await cloudClient.auth.getSession();
+      if (error) {
+        throw error;
+      }
+      cloudUser = data.session ? data.session.user : null;
+      return data.session || null;
+    }
+
     function setCloudStatus(message, type = "warning") {
       cloudStatus.textContent = message;
       cloudStatus.classList.remove("is-online", "is-warning", "is-error");
@@ -1706,11 +1719,7 @@
 
       try {
         cloudClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        const { data, error } = await cloudClient.auth.getSession();
-        if (error) {
-          throw error;
-        }
-        cloudUser = data.session ? data.session.user : null;
+        await refreshCloudSession();
         cloudReady = true;
         if (cloudUser) {
           cloudEmail.value = cloudUser.email || "";
@@ -1742,9 +1751,16 @@
         showToast("注册失败：" + error.message);
         return;
       }
-      cloudUser = data.user || null;
-      setCloudStatus("注册成功。如需邮件验证，请先到邮箱确认。", "warning");
+      cloudUser = data.session ? data.user : null;
+      if (!data.session) {
+        setCloudStatus("注册成功，请先完成邮箱确认后再登录同步。", "warning");
+        showToast("注册成功，请先确认邮箱后再登录");
+        updateCloudButtons();
+        return;
+      }
+      setCloudStatus("注册成功，已登录云端账号。", "online");
       updateCloudButtons();
+      await saveCloudState(true);
     }
 
     async function loginCloudAccount() {
@@ -1763,7 +1779,13 @@
         showToast("登录失败：" + error.message);
         return;
       }
-      cloudUser = data.user;
+      cloudUser = data.session ? data.user : null;
+      if (!cloudUser) {
+        setCloudStatus("登录未完成，请先确认邮箱后再登录同步。", "warning");
+        showToast("登录未完成，请先确认邮箱");
+        updateCloudButtons();
+        return;
+      }
       setCloudStatus("已登录云端账号，正在同步数据。", "online");
       updateCloudButtons();
       await loadCloudState();
@@ -1783,6 +1805,17 @@
 
     async function loadCloudState() {
       if (!cloudClient || !cloudUser) {
+        return;
+      }
+      try {
+        const session = await refreshCloudSession();
+        if (!session) {
+          setCloudStatus("请先登录云端账号后再同步。", "warning");
+          updateCloudButtons();
+          return;
+        }
+      } catch (error) {
+        setCloudStatus("云端登录状态检查失败：" + error.message, "error");
         return;
       }
       const { data, error } = await cloudClient
@@ -1818,6 +1851,18 @@
     async function saveCloudState(showMessage = false) {
       if (!cloudClient || !cloudUser) {
         if (showMessage) showToast("请先登录云端账号");
+        return;
+      }
+      try {
+        const session = await refreshCloudSession();
+        if (!session) {
+          setCloudStatus("请先登录云端账号后再保存。", "warning");
+          updateCloudButtons();
+          if (showMessage) showToast("请先登录云端账号");
+          return;
+        }
+      } catch (error) {
+        setCloudStatus("云端登录状态检查失败：" + error.message, "error");
         return;
       }
       const payload = {
