@@ -921,6 +921,29 @@
       display: none;
     }
 
+    .cloud-status {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .cloud-status.is-online {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .cloud-status.is-warning {
+      color: var(--warning);
+      font-weight: 700;
+    }
+
+    .cloud-status.is-error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
     .action-button {
       color: #fff;
       background: linear-gradient(90deg, #6a7ffb, #4567f7);
@@ -1285,6 +1308,32 @@
       <section class="panel form-card">
         <div class="panel-header">
           <div>
+            <h3>云端同步</h3>
+            <p class="panel-subtitle">登录后，员工和任务会保存到云端，换电脑打开也能同步。</p>
+          </div>
+        </div>
+        <span class="cloud-status is-warning" id="cloudStatus">云端未配置，当前仅本机保存。</span>
+        <div class="field">
+          <label for="cloudEmail">账号邮箱</label>
+          <input id="cloudEmail" type="email" autocomplete="email" placeholder="请输入邮箱">
+        </div>
+        <div class="field">
+          <label for="cloudPassword">登录密码</label>
+          <input id="cloudPassword" type="password" autocomplete="current-password" placeholder="请输入密码">
+        </div>
+        <div class="split-actions">
+          <button class="primary-button" id="cloudLoginButton" type="button">登录同步</button>
+          <button class="ghost-button" id="cloudRegisterButton" type="button">注册账号</button>
+        </div>
+        <div class="button-row">
+          <button class="ghost-button" id="cloudSyncButton" type="button">立即同步</button>
+          <button class="danger-button" id="cloudLogoutButton" type="button">退出云端账号</button>
+        </div>
+      </section>
+
+      <section class="panel form-card">
+        <div class="panel-header">
+          <div>
             <h3>新增/删减员工</h3>
             <p class="panel-subtitle">可新增员工，也可选择员工后删除其资料和任务。</p>
           </div>
@@ -1439,8 +1488,12 @@
   </div>
   <div class="toast" id="toast"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const STORAGE_KEY = "daily-work-manager-v2";
+    const SUPABASE_URL = "请替换为你的 SUPABASE_URL";
+    const SUPABASE_ANON_KEY = "请替换为你的 SUPABASE_ANON_KEY";
+    const CLOUD_TABLE = "work_manager_states";
     const TODAY = new Date().toISOString().slice(0, 10);
 
     const statusMeta = {
@@ -1534,6 +1587,13 @@
     const exportDataButton = document.getElementById("exportDataButton");
     const importDataButton = document.getElementById("importDataButton");
     const importDataInput = document.getElementById("importDataInput");
+    const cloudStatus = document.getElementById("cloudStatus");
+    const cloudEmail = document.getElementById("cloudEmail");
+    const cloudPassword = document.getElementById("cloudPassword");
+    const cloudLoginButton = document.getElementById("cloudLoginButton");
+    const cloudRegisterButton = document.getElementById("cloudRegisterButton");
+    const cloudSyncButton = document.getElementById("cloudSyncButton");
+    const cloudLogoutButton = document.getElementById("cloudLogoutButton");
     const exportDailyButton = document.getElementById("exportDailyButton");
     const exportWeeklyButton = document.getElementById("exportWeeklyButton");
     const copyReportButton = document.getElementById("copyReportButton");
@@ -1547,6 +1607,12 @@
     let dialogMemberId = null;
     let editingTaskId = null;
     let taskClickTimer = null;
+    let cloudClient = null;
+    let cloudUser = null;
+    let cloudReady = false;
+    let isHydratingCloud = false;
+    let cloudSaveTimer = null;
+
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         activeFilter: state.activeFilter,
@@ -1559,6 +1625,7 @@
         members: state.members,
         tasks: state.tasks
       }));
+      scheduleCloudSave();
     }
 
     function buildPersistedState() {
@@ -1584,6 +1651,191 @@
       showToast.timer = setTimeout(() => {
         toast.classList.remove("show");
       }, 2200);
+    }
+
+    function isCloudConfigured() {
+      return Boolean(
+        window.supabase &&
+        SUPABASE_URL &&
+        SUPABASE_ANON_KEY &&
+        !SUPABASE_URL.includes("请替换") &&
+        !SUPABASE_ANON_KEY.includes("请替换")
+      );
+    }
+
+    function setCloudStatus(message, type = "warning") {
+      cloudStatus.textContent = message;
+      cloudStatus.classList.remove("is-online", "is-warning", "is-error");
+      cloudStatus.classList.add(type === "online" ? "is-online" : type === "error" ? "is-error" : "is-warning");
+    }
+
+    function updateCloudButtons() {
+      const configured = isCloudConfigured();
+      const online = configured && cloudReady && cloudUser;
+      cloudEmail.disabled = online;
+      cloudPassword.disabled = online;
+      cloudLoginButton.disabled = !configured || online;
+      cloudRegisterButton.disabled = !configured || online;
+      cloudSyncButton.disabled = !online;
+      cloudLogoutButton.disabled = !online;
+    }
+
+    function applyPersistedState(data) {
+      if (!data || typeof data !== "object") {
+        return false;
+      }
+      state.activeFilter = typeof data.activeFilter === "string" ? data.activeFilter : "all";
+      state.activeMemberFilter = typeof data.activeMemberFilter === "string" ? data.activeMemberFilter : "all";
+      state.memberColumns = ["1", "2", "3", "4"].includes(String(data.memberColumns)) ? String(data.memberColumns) : "3";
+      state.selectedMemberId = data.selectedMemberId || (Array.isArray(data.members) && data.members[0] && data.members[0].id) || null;
+      state.selectedTaskId = data.selectedTaskId || null;
+      state.reportTitle = typeof data.reportTitle === "string" ? data.reportTitle : "";
+      state.reportText = typeof data.reportText === "string" ? data.reportText : "";
+      state.members = Array.isArray(data.members) ? data.members : [];
+      state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+      return true;
+    }
+
+    async function initializeCloud() {
+      if (!isCloudConfigured()) {
+        cloudReady = false;
+        setCloudStatus("云端未配置，当前仅本机保存。", "warning");
+        updateCloudButtons();
+        return;
+      }
+
+      try {
+        cloudClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const { data, error } = await cloudClient.auth.getSession();
+        if (error) {
+          throw error;
+        }
+        cloudUser = data.session ? data.session.user : null;
+        cloudReady = true;
+        if (cloudUser) {
+          cloudEmail.value = cloudUser.email || "";
+          setCloudStatus("已登录云端账号，正在同步数据。", "online");
+          await loadCloudState();
+        } else {
+          setCloudStatus("云端已配置，请登录后同步。", "warning");
+        }
+      } catch (error) {
+        cloudReady = false;
+        setCloudStatus("云端初始化失败：" + error.message, "error");
+      }
+      updateCloudButtons();
+    }
+
+    async function registerCloudAccount() {
+      if (!cloudClient) {
+        showToast("请先配置云端参数");
+        return;
+      }
+      const email = cloudEmail.value.trim();
+      const password = cloudPassword.value;
+      if (!email || password.length < 6) {
+        showToast("请输入邮箱和至少 6 位密码");
+        return;
+      }
+      const { data, error } = await cloudClient.auth.signUp({ email, password });
+      if (error) {
+        showToast("注册失败：" + error.message);
+        return;
+      }
+      cloudUser = data.user || null;
+      setCloudStatus("注册成功。如需邮件验证，请先到邮箱确认。", "warning");
+      updateCloudButtons();
+    }
+
+    async function loginCloudAccount() {
+      if (!cloudClient) {
+        showToast("请先配置云端参数");
+        return;
+      }
+      const email = cloudEmail.value.trim();
+      const password = cloudPassword.value;
+      if (!email || !password) {
+        showToast("请输入邮箱和密码");
+        return;
+      }
+      const { data, error } = await cloudClient.auth.signInWithPassword({ email, password });
+      if (error) {
+        showToast("登录失败：" + error.message);
+        return;
+      }
+      cloudUser = data.user;
+      setCloudStatus("已登录云端账号，正在同步数据。", "online");
+      updateCloudButtons();
+      await loadCloudState();
+      await saveCloudState(true);
+    }
+
+    async function logoutCloudAccount() {
+      if (cloudClient) {
+        await cloudClient.auth.signOut();
+      }
+      cloudUser = null;
+      cloudPassword.value = "";
+      setCloudStatus(isCloudConfigured() ? "已退出云端账号，当前仅本机保存。" : "云端未配置，当前仅本机保存。", "warning");
+      updateCloudButtons();
+      showToast("已退出云端账号");
+    }
+
+    async function loadCloudState() {
+      if (!cloudClient || !cloudUser) {
+        return;
+      }
+      const { data, error } = await cloudClient
+        .from(CLOUD_TABLE)
+        .select("data")
+        .eq("user_id", cloudUser.id)
+        .maybeSingle();
+      if (error) {
+        setCloudStatus("云端读取失败：" + error.message, "error");
+        return;
+      }
+      if (data && data.data && applyPersistedState(data.data)) {
+        isHydratingCloud = true;
+        ensureSelection();
+        render();
+        isHydratingCloud = false;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildPersistedState()));
+        setCloudStatus("云端数据已同步到当前页面。", "online");
+        showToast("云端数据已同步");
+      } else {
+        setCloudStatus("云端暂无数据，已准备保存当前页面内容。", "online");
+      }
+    }
+
+    function scheduleCloudSave() {
+      if (isHydratingCloud || !cloudClient || !cloudUser) {
+        return;
+      }
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer = setTimeout(() => saveCloudState(false), 700);
+    }
+
+    async function saveCloudState(showMessage = false) {
+      if (!cloudClient || !cloudUser) {
+        if (showMessage) showToast("请先登录云端账号");
+        return;
+      }
+      const payload = {
+        user_id: cloudUser.id,
+        data: buildPersistedState(),
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await cloudClient
+        .from(CLOUD_TABLE)
+        .upsert(payload, { onConflict: "user_id" });
+      if (error) {
+        setCloudStatus("云端保存失败：" + error.message, "error");
+        return;
+      }
+      setCloudStatus("云端已保存：" + new Date().toLocaleTimeString("zh-CN", { hour12: false }), "online");
+      if (showMessage) {
+        showToast("数据已同步到云端");
+      }
     }
 
     function formatStatusCount(tasks, status) {
@@ -2638,15 +2890,7 @@
             return;
           }
 
-          state.activeFilter = typeof parsed.activeFilter === "string" ? parsed.activeFilter : "all";
-          state.activeMemberFilter = typeof parsed.activeMemberFilter === "string" ? parsed.activeMemberFilter : "all";
-          state.memberColumns = ["1", "2", "3", "4"].includes(String(parsed.memberColumns)) ? String(parsed.memberColumns) : "3";
-          state.selectedMemberId = parsed.selectedMemberId || (parsed.members[0] && parsed.members[0].id) || null;
-          state.selectedTaskId = parsed.selectedTaskId || null;
-          state.reportTitle = typeof parsed.reportTitle === "string" ? parsed.reportTitle : "";
-          state.reportText = typeof parsed.reportText === "string" ? parsed.reportText : "";
-          state.members = parsed.members;
-          state.tasks = parsed.tasks;
+          applyPersistedState(parsed);
           ensureSelection();
           saveState();
           render();
@@ -2840,6 +3084,10 @@
       exportDataButton.addEventListener("click", exportDataBackup);
       importDataButton.addEventListener("click", () => importDataInput.click());
       importDataInput.addEventListener("change", importDataBackup);
+      cloudLoginButton.addEventListener("click", loginCloudAccount);
+      cloudRegisterButton.addEventListener("click", registerCloudAccount);
+      cloudSyncButton.addEventListener("click", () => saveCloudState(true));
+      cloudLogoutButton.addEventListener("click", logoutCloudAccount);
       exportDailyButton.addEventListener("click", generateDailyReport);
       exportWeeklyButton.addEventListener("click", generateWeeklyReport);
       copyReportButton.addEventListener("click", copyReport);
@@ -2870,6 +3118,7 @@
     reorganizeDashboard();
     bindEvents();
     render();
+    initializeCloud();
   </script>
 </body>
 </html>
