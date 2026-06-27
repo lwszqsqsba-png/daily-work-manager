@@ -590,6 +590,224 @@
       cursor: pointer;
     }
 
+    .manager-panel {
+      margin: 20px 0;
+      padding: 24px;
+      border-radius: var(--radius-xl);
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+    }
+
+    .manager-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .manager-title h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .manager-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-bottom: 18px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+    }
+
+    .manager-tab {
+      position: relative;
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .manager-tab.active {
+      color: var(--text);
+      font-weight: 800;
+    }
+
+    .manager-tab.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -11px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+
+    .manager-layout {
+      display: block;
+    }
+
+    .manager-grid,
+    .chart-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .manager-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .chart-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .manager-card {
+      min-height: 190px;
+      padding: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 12px 28px rgba(31, 42, 61, 0.06);
+    }
+
+    .manager-card h3 {
+      margin: 0 0 14px;
+      font-size: 17px;
+    }
+
+    .manager-title .ghost-button {
+      width: auto;
+      padding: 10px 14px;
+      border-radius: 8px;
+    }
+
+    .summary-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .summary-metric strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .summary-metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .mini-bars {
+      display: grid;
+      gap: 12px;
+    }
+
+    .mini-bar-row {
+      display: grid;
+      grid-template-columns: 82px 1fr 36px;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .donut-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 150px;
+    }
+
+    .donut-chart {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: conic-gradient(var(--primary) 0 100%);
+      position: relative;
+    }
+
+    .donut-chart::after {
+      content: "";
+      position: absolute;
+      inset: 34px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .chart-canvas {
+      width: 100%;
+      min-height: 150px;
+    }
+
+    .bar-chart {
+      display: flex;
+      align-items: end;
+      gap: 12px;
+      height: 150px;
+      padding-top: 12px;
+      border-bottom: 1px solid rgba(31, 42, 61, 0.25);
+    }
+
+    .bar-item {
+      flex: 1;
+      min-width: 20px;
+      display: grid;
+      align-items: end;
+      gap: 6px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .bar-item span:first-child {
+      display: block;
+      width: 100%;
+      min-height: 4px;
+      border-radius: 8px 8px 0 0;
+      background: var(--primary);
+    }
+
+    .trend-line {
+      width: 100%;
+      height: 150px;
+    }
+
+    .manager-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .manager-list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(248, 250, 252, 0.96);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .manager-list-item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .empty-chart {
+      display: grid;
+      place-items: center;
+      min-height: 150px;
+      color: var(--muted);
+      font-size: 13px;
+      background: linear-gradient(135deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.92));
+      border-radius: 14px;
+    }
+
     .priority-select-urgent {
       color: #ef5b5b;
       background: rgba(239, 91, 91, 0.1);
@@ -1209,9 +1427,21 @@
 
       .insight-grid,
       .member-grid,
+      .manager-layout,
+      .manager-grid,
+      .chart-grid,
       .mode-grid,
       .split-actions {
         grid-template-columns: 1fr;
+      }
+
+      .summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .manager-title {
+        align-items: stretch;
+        flex-direction: column;
       }
 
       .task-table {
@@ -1292,6 +1522,18 @@
         </div>
         <div id="taskTableWrap"></div>
       </article>
+
+      <section class="manager-panel" id="taskManagerPanel">
+        <div class="manager-title">
+          <h2>任务管理</h2>
+          <button class="ghost-button" id="seedTestTasksButton" type="button">生成测试任务</button>
+        </div>
+        <div class="manager-tabs">
+          <button class="manager-tab active" type="button" data-manager-tab="overview">概览</button>
+          <button class="manager-tab" type="button" data-manager-tab="statistics">统计</button>
+        </div>
+        <div id="taskManagerContent"></div>
+      </section>
     </main>
 
     <aside class="side-panel" id="sidePanel">
@@ -1326,7 +1568,10 @@
           <button class="ghost-button" id="cloudRegisterButton" type="button">注册账号</button>
         </div>
         <div class="button-row">
+          <button class="ghost-button" id="cloudSaveButton" type="button">本地保存到云端</button>
+          <button class="ghost-button" id="cloudLoadButton" type="button">云端同步到本地</button>
           <button class="ghost-button" id="cloudSyncButton" type="button">立即同步</button>
+          <button class="ghost-button" id="cloudPasswordButton" type="button">修改登录密码</button>
           <button class="danger-button" id="cloudLogoutButton" type="button">退出云端账号</button>
         </div>
       </section>
@@ -1526,6 +1771,7 @@
       selectedTaskId: null,
       reportTitle: "",
       reportText: "",
+      managerTab: "overview",
       members: [],
       tasks: []
     };
@@ -1542,6 +1788,7 @@
           ...parsed,
           reportTitle: typeof parsed.reportTitle === "string" ? parsed.reportTitle : "",
           reportText: typeof parsed.reportText === "string" ? parsed.reportText : "",
+          managerTab: ["overview", "statistics"].includes(parsed.managerTab) ? parsed.managerTab : "overview",
           members: Array.isArray(parsed.members) ? parsed.members : [],
           tasks: Array.isArray(parsed.tasks) ? parsed.tasks : []
         };
@@ -1592,8 +1839,13 @@
     const cloudPassword = document.getElementById("cloudPassword");
     const cloudLoginButton = document.getElementById("cloudLoginButton");
     const cloudRegisterButton = document.getElementById("cloudRegisterButton");
+    const cloudSaveButton = document.getElementById("cloudSaveButton");
+    const cloudLoadButton = document.getElementById("cloudLoadButton");
     const cloudSyncButton = document.getElementById("cloudSyncButton");
+    const cloudPasswordButton = document.getElementById("cloudPasswordButton");
     const cloudLogoutButton = document.getElementById("cloudLogoutButton");
+    const taskManagerContent = document.getElementById("taskManagerContent");
+    const seedTestTasksButton = document.getElementById("seedTestTasksButton");
     const exportDailyButton = document.getElementById("exportDailyButton");
     const exportWeeklyButton = document.getElementById("exportWeeklyButton");
     const copyReportButton = document.getElementById("copyReportButton");
@@ -1622,6 +1874,7 @@
         selectedTaskId: state.selectedTaskId,
         reportTitle: state.reportTitle,
         reportText: state.reportText,
+        managerTab: state.managerTab,
         members: state.members,
         tasks: state.tasks
       }));
@@ -1639,6 +1892,7 @@
         selectedTaskId: state.selectedTaskId,
         reportTitle: state.reportTitle,
         reportText: state.reportText,
+        managerTab: state.managerTab,
         members: state.members,
         tasks: state.tasks
       };
@@ -1689,7 +1943,10 @@
       cloudPassword.disabled = online;
       cloudLoginButton.disabled = !configured || online;
       cloudRegisterButton.disabled = !configured || online;
+      cloudSaveButton.disabled = !online;
+      cloudLoadButton.disabled = !online;
       cloudSyncButton.disabled = !online;
+      cloudPasswordButton.disabled = !online;
       cloudLogoutButton.disabled = !online;
     }
 
@@ -1704,6 +1961,7 @@
       state.selectedTaskId = data.selectedTaskId || null;
       state.reportTitle = typeof data.reportTitle === "string" ? data.reportTitle : "";
       state.reportText = typeof data.reportText === "string" ? data.reportText : "";
+      state.managerTab = ["overview", "statistics"].includes(data.managerTab) ? data.managerTab : "overview";
       state.members = Array.isArray(data.members) ? data.members : [];
       state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
       return true;
@@ -1881,6 +2139,34 @@
       if (showMessage) {
         showToast("数据已同步到云端");
       }
+    }
+
+    async function syncCloudBothWays() {
+      await loadCloudState();
+      await saveCloudState(true);
+    }
+
+    async function changeCloudPassword() {
+      if (!cloudClient || !cloudUser) {
+        showToast("请先登录云端账号");
+        return;
+      }
+      const nextPassword = window.prompt("请输入新的登录密码（至少 6 位）");
+      if (nextPassword === null) {
+        return;
+      }
+      if (nextPassword.trim().length < 6) {
+        showToast("新密码至少需要 6 位");
+        return;
+      }
+      const { error } = await cloudClient.auth.updateUser({ password: nextPassword.trim() });
+      if (error) {
+        showToast("修改密码失败：" + error.message);
+        return;
+      }
+      cloudPassword.value = "";
+      showToast("登录密码已修改");
+      setCloudStatus("登录密码已修改，请牢记新密码。", "online");
     }
 
     function formatStatusCount(tasks, status) {
@@ -2118,6 +2404,222 @@
           </div>
         </div>
       `).join("");
+    }
+
+    function countDueWithin(days) {
+      const limit = new Date(TODAY);
+      limit.setDate(limit.getDate() + days);
+      return state.tasks.filter((task) => {
+        const due = new Date(normalizeTaskDates(task).due);
+        return due >= new Date(TODAY) && due <= limit && task.status !== "done";
+      }).length;
+    }
+
+    function getTaskMetrics() {
+      const total = state.tasks.length;
+      const done = formatStatusCount(state.tasks, "done");
+      const doing = formatStatusCount(state.tasks, "doing");
+      const todo = formatStatusCount(state.tasks, "todo");
+      const delayed = state.tasks.filter((task) => task.status === "delayed" || new Date(normalizeTaskDates(task).due) < new Date(TODAY)).length;
+      const progressTotal = state.tasks.reduce((sum, task) => sum + Number(task.progress || 0), 0);
+      return {
+        total,
+        done,
+        doing,
+        todo,
+        delayed,
+        pending: total - done,
+        avgProgress: total ? Math.round(progressTotal / total) : 0,
+        dueToday: state.tasks.filter((task) => normalizeTaskDates(task).due === TODAY && task.status !== "done").length,
+        dueThreeDays: countDueWithin(3),
+        dueSevenDays: countDueWithin(7)
+      };
+    }
+
+    function renderMiniBars(items) {
+      const max = Math.max(1, ...items.map((item) => item.value));
+      return `<div class="mini-bars">${items.map((item) => `
+        <div class="mini-bar-row">
+          <span>${item.label}</span>
+          <div class="progress-track">
+            <span class="progress-fill" style="width:${Math.max(4, Math.round(item.value / max * 100))}%; background:${item.color || "var(--primary)"};"></span>
+          </div>
+          <strong>${item.value}</strong>
+        </div>
+      `).join("")}</div>`;
+    }
+
+    function renderDonut(items) {
+      const total = items.reduce((sum, item) => sum + item.value, 0);
+      if (!total) {
+        return `<div class="empty-chart">暂无可以查看的数据</div>`;
+      }
+      let cursor = 0;
+      const stops = items.map((item) => {
+        const start = cursor;
+        const end = cursor + item.value / total * 100;
+        cursor = end;
+        return `${item.color} ${start}% ${end}%`;
+      }).join(", ");
+      return `
+        <div class="donut-wrap">
+          <div class="donut-chart" style="background: conic-gradient(${stops});"></div>
+        </div>
+        <div class="manager-list">
+          ${items.map((item) => `<div class="manager-list-item"><strong>${item.label}</strong><span>${item.value}</span></div>`).join("")}
+        </div>
+      `;
+    }
+
+    function renderBarChart(items) {
+      const max = Math.max(1, ...items.map((item) => item.value));
+      return `<div class="bar-chart">${items.map((item) => `
+        <div class="bar-item" title="${item.label}：${item.value}">
+          <span style="height:${Math.max(4, Math.round(item.value / max * 135))}px; background:${item.color || "var(--primary)"};"></span>
+          <span>${item.shortLabel || item.label}</span>
+        </div>
+      `).join("")}</div>`;
+    }
+
+    function renderTrendLine(items) {
+      if (!items.length) {
+        return `<div class="empty-chart">暂无可以查看的数据</div>`;
+      }
+      const max = Math.max(1, ...items.map((item) => item.value));
+      const width = 520;
+      const height = 150;
+      const points = items.map((item, index) => {
+        const x = items.length === 1 ? width / 2 : index / (items.length - 1) * width;
+        const y = height - (item.value / max * 120) - 15;
+        return `${x},${y}`;
+      }).join(" ");
+      return `
+        <svg class="trend-line" viewBox="0 0 ${width} ${height}" role="img" aria-label="任务趋势">
+          <polyline fill="none" stroke="#1ecf78" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" points="${points}"></polyline>
+          ${points.split(" ").map((point) => {
+            const [x, y] = point.split(",");
+            return `<circle cx="${x}" cy="${y}" r="4" fill="#1ecf78"></circle>`;
+          }).join("")}
+        </svg>
+        <div class="manager-list">
+          ${items.map((item) => `<div class="manager-list-item"><strong>${item.label}</strong><span>${item.value}</span></div>`).join("")}
+        </div>
+      `;
+    }
+
+    function getMemberLoadItems() {
+      return state.members.map((member) => {
+        const tasks = getTasksByMember(member.id);
+        return {
+          label: member.name,
+          shortLabel: member.name.slice(0, 2),
+          value: tasks.filter((task) => task.status !== "done").length,
+          color: member.id === state.selectedMemberId ? "#5a55d6" : "#31a8f0"
+        };
+      });
+    }
+
+    function getTaskTrendItems() {
+      return Array.from({ length: 7 }, (_, index) => {
+        const date = getDateOffset(index - 6);
+        return {
+          label: date.slice(5),
+          value: state.tasks.filter((task) => (task.createdAt || task.updatedAt || task.start || task.due || TODAY) <= date).length
+        };
+      });
+    }
+
+    function renderTaskManager() {
+      if (!taskManagerContent) return;
+      document.querySelectorAll("[data-manager-tab]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.managerTab === state.managerTab);
+      });
+
+      const metrics = getTaskMetrics();
+      const statusItems = [
+        { label: "待开始", value: metrics.todo, color: "#ffb100" },
+        { label: "进行中", value: metrics.doing, color: "#4567f7" },
+        { label: "已延期", value: metrics.delayed, color: "#ef5b5b" },
+        { label: "已完成", value: metrics.done, color: "#1fa97c" }
+      ];
+      const memberItems = getMemberLoadItems();
+      const trendItems = getTaskTrendItems();
+      const workloadDone = metrics.total ? Math.round(metrics.done / metrics.total * 100) : 0;
+
+      if (state.managerTab === "statistics") {
+        taskManagerContent.innerHTML = `
+          <div class="chart-grid">
+            <article class="manager-card"><h3>任务进度分析</h3>${renderBarChart(statusItems)}</article>
+            <article class="manager-card"><h3>任务完成趋势</h3>${renderTrendLine(trendItems)}</article>
+            <article class="manager-card"><h3>任务状态分布</h3>${renderDonut(statusItems)}</article>
+            <article class="manager-card"><h3>任务成员分布</h3>${memberItems.length ? renderDonut(memberItems.map((item) => ({ ...item, color: item.color || "#31a8f0" }))) : `<div class="empty-chart">暂无成员数据</div>`}</article>
+          </div>
+        `;
+        return;
+      }
+
+      taskManagerContent.innerHTML = `
+        <div class="manager-layout">
+          <div class="manager-grid">
+            <article class="manager-card">
+              <h3>任务概览</h3>
+              <div class="summary-metrics">
+                <div class="summary-metric"><span>任务数</span><strong>${metrics.total}</strong></div>
+                <div class="summary-metric"><span>已完成</span><strong>${metrics.done}</strong></div>
+                <div class="summary-metric"><span>未完成</span><strong>${metrics.pending}</strong></div>
+                <div class="summary-metric"><span>已延期</span><strong>${metrics.delayed}</strong></div>
+              </div>
+              ${renderMiniBars(statusItems)}
+            </article>
+            <article class="manager-card">
+              <h3>任务管理</h3>
+              <div class="manager-list">
+                <div class="manager-list-item"><strong>当前账号</strong><span>${cloudUser ? cloudUser.email : "未登录"}</span></div>
+                <div class="manager-list-item"><strong>当前成员</strong><span>${getSelectedMember()?.name || "未选择"}</span></div>
+                <div class="manager-list-item"><strong>平均进度</strong><span>${metrics.avgProgress}%</span></div>
+                <div class="manager-list-item"><strong>今日到期</strong><span>${metrics.dueToday}</span></div>
+              </div>
+            </article>
+            <article class="manager-card">
+              <h3>工时概览</h3>
+              <div class="summary-metrics">
+                <div class="summary-metric"><span>工时总数</span><strong>${metrics.total * 2}</strong></div>
+                <div class="summary-metric"><span>人均任务</span><strong>${state.members.length ? Math.round(metrics.total / state.members.length) : 0}</strong></div>
+                <div class="summary-metric"><span>已报工</span><strong>${metrics.done * 2}</strong></div>
+                <div class="summary-metric"><span>未报工</span><strong>${metrics.pending * 2}</strong></div>
+              </div>
+            </article>
+            <article class="manager-card">
+              <h3>成员统计</h3>
+              ${memberItems.length ? renderMiniBars(memberItems) : `<div class="empty-chart">暂无成员数据</div>`}
+            </article>
+            <article class="manager-card">
+              <h3>忙闲分析</h3>
+              ${renderDonut([
+                { label: "已完成任务人员比例", value: workloadDone, color: "#35aaf2" },
+                { label: "未完成任务人员比例", value: Math.max(0, 100 - workloadDone), color: "#5a55d6" }
+              ])}
+            </article>
+            <article class="manager-card">
+              <h3>成员负荷</h3>
+              ${memberItems.length ? renderBarChart(memberItems) : `<div class="empty-chart">暂无成员数据</div>`}
+            </article>
+            <article class="manager-card">
+              <h3>任务趋势</h3>
+              ${renderTrendLine(trendItems)}
+            </article>
+            <article class="manager-card">
+              <h3>时间分析</h3>
+              ${renderDonut([
+                { label: "今日到期", value: metrics.dueToday, color: "#4567f7" },
+                { label: "三天内到期", value: metrics.dueThreeDays, color: "#1fa97c" },
+                { label: "七天内到期", value: metrics.dueSevenDays, color: "#ff9d2f" },
+                { label: "已延期", value: metrics.delayed, color: "#ef5b5b" }
+              ])}
+            </article>
+          </div>
+        </div>
+      `;
     }
 
     function renderMembers() {
@@ -2568,6 +3070,59 @@
       render();
       showToast("已新增任务：" + title);
       return newTask;
+    }
+
+    function seedTestTasks() {
+      const targetNames = ["程俊聪", "刘燕奇", "李凤祺"];
+      const titles = [
+        "设备巡检记录整理",
+        "客户需求确认",
+        "日报数据核对",
+        "物料状态跟进",
+        "作业现场检查",
+        "异常问题复盘",
+        "测试样机验证",
+        "供应商进度沟通",
+        "安装资料归档",
+        "周计划任务拆分"
+      ];
+      const priorities = ["urgent", "high", "medium", "low"];
+      const statuses = ["todo", "doing", "delayed", "done"];
+      let created = 0;
+
+      targetNames.forEach((name, memberIndex) => {
+        const member = state.members.find((item) => item.name === name);
+        if (!member) return;
+        for (let index = 0; index < 10; index += 1) {
+          const startOffset = Math.floor(Math.random() * 15) - 7;
+          const dueOffset = startOffset + Math.floor(Math.random() * 9) + 1;
+          const status = statuses[(index + memberIndex) % statuses.length];
+          const task = {
+            id: "t" + Date.now() + "-" + memberIndex + "-" + index,
+            memberId: member.id,
+            title: titles[index] + " " + String(index + 1).padStart(2, "0"),
+            start: getDateOffset(startOffset),
+            due: getDateOffset(dueOffset),
+            priority: priorities[(index + memberIndex) % priorities.length],
+            status,
+            progress: status === "done" ? 100 : status === "doing" ? 45 + (index % 4) * 10 : status === "delayed" ? 20 : 0,
+            checkNote: "测试任务，用于验证看板、统计和云端同步。",
+            updatedAt: TODAY
+          };
+          state.tasks.unshift(task);
+          created += 1;
+        }
+        updateMemberSnapshot(member.id);
+      });
+
+      if (!created) {
+        showToast("未找到程俊聪、刘燕奇、李凤祺，请先新增员工");
+        return;
+      }
+      ensureSelection();
+      saveState();
+      render();
+      showToast("已生成 " + created + " 条测试任务");
     }
 
     function openTaskDialog(memberId) {
@@ -3131,8 +3686,19 @@
       importDataInput.addEventListener("change", importDataBackup);
       cloudLoginButton.addEventListener("click", loginCloudAccount);
       cloudRegisterButton.addEventListener("click", registerCloudAccount);
-      cloudSyncButton.addEventListener("click", () => saveCloudState(true));
+      cloudSaveButton.addEventListener("click", () => saveCloudState(true));
+      cloudLoadButton.addEventListener("click", loadCloudState);
+      cloudSyncButton.addEventListener("click", syncCloudBothWays);
+      cloudPasswordButton.addEventListener("click", changeCloudPassword);
       cloudLogoutButton.addEventListener("click", logoutCloudAccount);
+      seedTestTasksButton.addEventListener("click", seedTestTasks);
+      document.querySelectorAll("[data-manager-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.managerTab = button.dataset.managerTab;
+          saveState();
+          renderTaskManager();
+        });
+      });
       exportDailyButton.addEventListener("click", generateDailyReport);
       exportWeeklyButton.addEventListener("click", generateWeeklyReport);
       copyReportButton.addEventListener("click", copyReport);
@@ -3153,6 +3719,7 @@
       renderMembers();
       renderFilters();
       renderTaskTable();
+      renderTaskManager();
       renderProfileCard();
       renderReportBox();
       renderMemberDeleteOptions();
