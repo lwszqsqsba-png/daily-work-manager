@@ -804,15 +804,8 @@
 
     .metric-board {
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 10px;
-    }
-
-    .metric-cell {
-      display: grid;
-      grid-template-columns: minmax(72px, 0.75fr) 42px minmax(0, 3fr);
-      align-items: center;
-      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 16px;
     }
 
     .metric-cell {
@@ -828,15 +821,15 @@
 
     .metric-cell strong {
       display: block;
-      margin: 0;
+      margin: 4px 0 8px;
       color: #2158d8;
-      font-size: 18px;
+      font-size: 12px;
       line-height: 1;
-      text-align: right;
+      font-weight: 800;
     }
 
     .metric-line {
-      height: 3px;
+      height: 10px;
       border-radius: 999px;
       background: rgba(148, 163, 184, 0.18);
       overflow: hidden;
@@ -847,6 +840,74 @@
       height: 100%;
       border-radius: inherit;
       background: var(--primary);
+    }
+
+    .workload-card {
+      display: grid;
+      grid-template-columns: 128px minmax(0, 1fr);
+      align-items: center;
+      gap: 14px;
+    }
+
+    .workload-gauge {
+      --gauge-color: #31a8f0;
+      position: relative;
+      width: 122px;
+      height: 122px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: conic-gradient(var(--gauge-color) var(--gauge-value), rgba(148, 163, 184, 0.16) 0);
+    }
+
+    .workload-gauge::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .workload-gauge strong,
+    .workload-gauge span {
+      position: relative;
+      z-index: 1;
+      display: block;
+      text-align: center;
+    }
+
+    .workload-gauge strong {
+      color: #1f2a3d;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .workload-gauge span {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .workload-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .workload-list span {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+      border-radius: 10px;
+      background: rgba(248, 250, 252, 0.96);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .workload-list strong {
+      color: #1f2a3d;
+      font-size: 12px;
     }
 
     .manager-card.chart-card {
@@ -1793,7 +1854,6 @@
         <div class="button-row">
           <button class="ghost-button" id="cloudSaveButton" type="button">本地保存到云端</button>
           <button class="ghost-button" id="cloudLoadButton" type="button">云端同步到本地</button>
-          <button class="ghost-button" id="cloudSyncButton" type="button">立即同步</button>
           <button class="ghost-button" id="cloudPasswordButton" type="button">修改登录密码</button>
           <button class="danger-button" id="cloudLogoutButton" type="button">退出云端账号</button>
         </div>
@@ -1954,6 +2014,32 @@
       </div>
     </section>
   </div>
+  <div class="modal-backdrop hidden" id="registerDialogBackdrop">
+    <section class="task-dialog" role="dialog" aria-modal="true" aria-labelledby="registerDialogTitle">
+      <div class="task-dialog-head">
+        <div>
+          <h3 id="registerDialogTitle">注册云端账号</h3>
+          <p>填写邮箱和密码，注册后即可把员工和任务保存到云端。</p>
+        </div>
+        <button class="dialog-close" id="closeRegisterDialogButton" type="button" aria-label="关闭">×</button>
+      </div>
+      <form id="registerDialogForm">
+        <div class="field">
+          <label for="registerEmail">账号邮箱</label>
+          <input id="registerEmail" name="registerEmail" type="email" autocomplete="email" placeholder="请输入邮箱" required>
+        </div>
+        <div class="field">
+          <label for="registerPassword">登录密码</label>
+          <input id="registerPassword" name="registerPassword" type="password" autocomplete="new-password" placeholder="至少 6 位密码" required>
+        </div>
+        <div class="field">
+          <label for="registerPasswordConfirm">确认密码</label>
+          <input id="registerPasswordConfirm" name="registerPasswordConfirm" type="password" autocomplete="new-password" placeholder="再次输入密码" required>
+        </div>
+        <button class="primary-button" type="submit">确认注册</button>
+      </form>
+    </section>
+  </div>
   <div class="toast" id="toast"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -2064,9 +2150,14 @@
     const cloudRegisterButton = document.getElementById("cloudRegisterButton");
     const cloudSaveButton = document.getElementById("cloudSaveButton");
     const cloudLoadButton = document.getElementById("cloudLoadButton");
-    const cloudSyncButton = document.getElementById("cloudSyncButton");
     const cloudPasswordButton = document.getElementById("cloudPasswordButton");
     const cloudLogoutButton = document.getElementById("cloudLogoutButton");
+    const registerDialogBackdrop = document.getElementById("registerDialogBackdrop");
+    const registerDialogForm = document.getElementById("registerDialogForm");
+    const closeRegisterDialogButton = document.getElementById("closeRegisterDialogButton");
+    const registerEmail = document.getElementById("registerEmail");
+    const registerPassword = document.getElementById("registerPassword");
+    const registerPasswordConfirm = document.getElementById("registerPasswordConfirm");
     const taskManagerContent = document.getElementById("taskManagerContent");
     const exportDailyButton = document.getElementById("exportDailyButton");
     const exportWeeklyButton = document.getElementById("exportWeeklyButton");
@@ -2167,7 +2258,6 @@
       cloudRegisterButton.disabled = !configured || online;
       cloudSaveButton.disabled = !online;
       cloudLoadButton.disabled = !online;
-      cloudSyncButton.disabled = !online;
       cloudPasswordButton.disabled = !online;
       cloudLogoutButton.disabled = !online;
     }
@@ -2215,15 +2305,39 @@
       updateCloudButtons();
     }
 
-    async function registerCloudAccount() {
+    function openRegisterDialog() {
+      if (!isCloudConfigured()) {
+        showToast("云端未配置，暂时无法注册");
+        return;
+      }
+      registerEmail.value = cloudEmail.value.trim();
+      registerPassword.value = "";
+      registerPasswordConfirm.value = "";
+      registerDialogBackdrop.classList.remove("hidden");
+      setTimeout(() => registerEmail.focus(), 0);
+    }
+
+    function closeRegisterDialog() {
+      registerDialogBackdrop.classList.add("hidden");
+    }
+
+    async function registerCloudAccount(event) {
+      if (event) {
+        event.preventDefault();
+      }
       if (!cloudClient) {
         showToast("请先配置云端参数");
         return;
       }
-      const email = cloudEmail.value.trim();
-      const password = cloudPassword.value;
+      const email = registerEmail.value.trim();
+      const password = registerPassword.value;
+      const confirmPassword = registerPasswordConfirm.value;
       if (!email || password.length < 6) {
         showToast("请输入邮箱和至少 6 位密码");
+        return;
+      }
+      if (password !== confirmPassword) {
+        showToast("两次输入的密码不一致");
         return;
       }
       const { data, error } = await cloudClient.auth.signUp({ email, password });
@@ -2231,13 +2345,17 @@
         showToast("注册失败：" + error.message);
         return;
       }
+      cloudEmail.value = email;
+      cloudPassword.value = "";
       cloudUser = data.session ? data.user : null;
       if (!data.session) {
+        closeRegisterDialog();
         setCloudStatus("注册成功，请先完成邮箱确认后再登录同步。", "warning");
         showToast("注册成功，请先确认邮箱后再登录");
         updateCloudButtons();
         return;
       }
+      closeRegisterDialog();
       setCloudStatus("注册成功，已登录云端账号。", "online");
       updateCloudButtons();
       await saveCloudState(true);
@@ -3940,7 +4058,7 @@
           ${items.map((item) => `
             <div class="metric-cell">
               <span>${item.label}</span>
-              <strong>${item.value}</strong>
+              <strong style="color:${item.color || "var(--primary)"};">${item.value}</strong>
               <div class="metric-line"><i style="width:${Math.max(4, Math.round(item.value / max * 100))}%; background:${item.color || "var(--primary)"};"></i></div>
             </div>
           `).join("")}
@@ -3965,6 +4083,32 @@
           </div>
         </div>
         <div class="chart-legend">${items.map((item) => `<span><i class="legend-dot" style="background:${item.color || "#31a8f0"}"></i>${item.label}${item.unit === "%" ? " 平均进度" : ""}</span>`).join("")}</div>
+      `;
+    }
+
+    function renderWorkloadAnalysis(metrics, memberCount) {
+      const pending = Math.max(0, metrics.total - metrics.done);
+      const active = Math.max(0, metrics.doing + metrics.delayed);
+      const workloadRate = metrics.total ? Math.round(active / metrics.total * 100) : 0;
+      const idleRate = Math.max(0, 100 - workloadRate);
+      const perMember = memberCount ? (pending / memberCount).toFixed(1).replace(/\.0$/, "") : "0";
+      const gaugeColor = workloadRate >= 80 ? "#ef5b5b" : workloadRate >= 55 ? "#ff9d2f" : "#31a8f0";
+      return `
+        <div class="workload-card">
+          <div class="workload-gauge" style="--gauge-value:${workloadRate}%; --gauge-color:${gaugeColor};">
+            <div>
+              <strong>${workloadRate}%</strong>
+              <span>忙碌度</span>
+            </div>
+          </div>
+          <div class="workload-list">
+            <span>待处理任务<strong>${pending} 件</strong></span>
+            <span>进行/延期<strong>${active} 件</strong></span>
+            <span>延期风险<strong>${metrics.delayed} 件</strong></span>
+            <span>人均待办<strong>${perMember} 件</strong></span>
+            <span>可用余量<strong>${idleRate}%</strong></span>
+          </div>
+        </div>
       `;
     }
 
@@ -4330,15 +4474,17 @@
 
       const visibleTasks = getVisibleTasks();
       const selectedMember = state.activeMemberFilter === "all" ? null : getMemberById(state.activeMemberFilter);
+      const isDelayedForMetrics = (task) => task.status !== "done" && (task.status === "delayed" || new Date(normalizeTaskDates(task).due) < new Date(TODAY));
       const metrics = {
         total: visibleTasks.length,
         done: visibleTasks.filter((task) => task.status === "done").length,
-        doing: visibleTasks.filter((task) => task.status === "doing").length,
-        todo: visibleTasks.filter((task) => task.status === "todo").length,
-        delayed: visibleTasks.filter((task) => task.status === "delayed" || new Date(normalizeTaskDates(task).due) < new Date(TODAY)).length,
+        doing: visibleTasks.filter((task) => task.status === "doing" && !isDelayedForMetrics(task)).length,
+        todo: visibleTasks.filter((task) => task.status === "todo" && !isDelayedForMetrics(task)).length,
+        delayed: visibleTasks.filter(isDelayedForMetrics).length,
         avgProgress: visibleTasks.length ? Math.round(visibleTasks.reduce((sum, task) => sum + Number(task.progress || 0), 0) / visibleTasks.length) : 0,
         dueToday: visibleTasks.filter((task) => normalizeTaskDates(task).due === TODAY && task.status !== "done").length
       };
+      metrics.pending = Math.max(0, metrics.total - metrics.done);
       const dueThreeLimit = new Date(TODAY);
       dueThreeLimit.setDate(dueThreeLimit.getDate() + 3);
       const dueSevenLimit = new Date(TODAY);
@@ -4403,7 +4549,7 @@
               <h3>任务概览</h3>
               ${renderMetricBoard([
                 { label: "总任务", value: metrics.total, color: "#31a8f0" },
-                { label: "未完成", value: metrics.todo + metrics.doing + metrics.delayed, color: "#5bd45b" },
+                { label: "未完成", value: metrics.pending, color: "#5bd45b" },
                 { label: "待办", value: metrics.todo, color: "#5a55d6" },
                 { label: "已延期", value: metrics.delayed, color: "#ff7a1a" },
                 { label: "已完成", value: metrics.done, color: "#5a55d6" },
@@ -4418,10 +4564,7 @@
             </article>
             <article class="manager-card chart-card">
               <h3>忙闲分析</h3>
-              ${renderDonutWithLabels([
-                { label: "已完成任务", value: metrics.done, color: "#5a55d6" },
-                { label: "未完成任务", value: Math.max(0, metrics.total - metrics.done), color: "#31a8f0" }
-              ], "任务")}
+              ${renderWorkloadAnalysis(metrics, state.activeMemberFilter === "all" ? state.members.length : (selectedMember ? 1 : 0))}
             </article>
             <article class="manager-card chart-card">
               <h3>成员负荷</h3>
@@ -4460,6 +4603,13 @@
           closeInspectDialog();
         }
       });
+      closeRegisterDialogButton.addEventListener("click", closeRegisterDialog);
+      registerDialogBackdrop.addEventListener("click", (event) => {
+        if (event.target === registerDialogBackdrop) {
+          closeRegisterDialog();
+        }
+      });
+      registerDialogForm.addEventListener("submit", registerCloudAccount);
       progressRange.addEventListener("input", () => {
         progressValue.textContent = progressRange.value + "%";
       });
@@ -4479,10 +4629,9 @@
       importDataButton.addEventListener("click", () => importDataInput.click());
       importDataInput.addEventListener("change", importDataBackup);
       cloudLoginButton.addEventListener("click", loginCloudAccount);
-      cloudRegisterButton.addEventListener("click", registerCloudAccount);
+      cloudRegisterButton.addEventListener("click", openRegisterDialog);
       cloudSaveButton.addEventListener("click", () => saveCloudState(true));
       cloudLoadButton.addEventListener("click", loadCloudState);
-      cloudSyncButton.addEventListener("click", syncCloudBothWays);
       cloudPasswordButton.addEventListener("click", changeCloudPassword);
       cloudLogoutButton.addEventListener("click", logoutCloudAccount);
       document.querySelectorAll("[data-manager-tab]").forEach((button) => {
