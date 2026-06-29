@@ -802,6 +802,134 @@
       border-radius: 14px;
     }
 
+    .metric-board {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric-cell {
+      min-width: 0;
+    }
+
+    .metric-cell span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .metric-cell strong {
+      display: block;
+      margin: 4px 0 8px;
+      color: #2158d8;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .metric-line {
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(148, 163, 184, 0.18);
+      overflow: hidden;
+    }
+
+    .metric-line i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--primary);
+    }
+
+    .manager-card.chart-card {
+      min-height: 230px;
+    }
+
+    .manager-card.chart-card h3 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    .simple-axis-chart {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 8px;
+      min-height: 168px;
+      padding-top: 8px;
+    }
+
+    .axis-labels {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 10px;
+      text-align: right;
+    }
+
+    .axis-plot {
+      position: relative;
+      display: flex;
+      align-items: end;
+      justify-content: space-around;
+      gap: 10px;
+      padding: 8px 8px 24px;
+      border-left: 1px solid rgba(31, 42, 61, 0.16);
+      border-bottom: 1px solid rgba(31, 42, 61, 0.24);
+      background: repeating-linear-gradient(
+        to top,
+        transparent 0,
+        transparent 31px,
+        rgba(148, 163, 184, 0.16) 32px
+      );
+    }
+
+    .axis-bar {
+      position: relative;
+      width: 26px;
+      min-height: 4px;
+      border-radius: 8px 8px 0 0;
+      background: #31a8f0;
+    }
+
+    .axis-bar em {
+      position: absolute;
+      left: 50%;
+      bottom: -20px;
+      width: 72px;
+      transform: translateX(-50%);
+      color: var(--muted);
+      font-size: 10px;
+      font-style: normal;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      display: inline-block;
+      margin-right: 4px;
+      border-radius: 50%;
+      background: var(--primary);
+      vertical-align: middle;
+    }
+
     .priority-select-urgent {
       color: #ef5b5b;
       background: rgba(239, 91, 91, 0.1);
@@ -1520,7 +1648,6 @@
       <section class="manager-panel" id="taskManagerPanel">
         <div class="manager-title">
           <h2>任务管理</h2>
-          <button class="ghost-button" id="seedTestTasksButton" type="button">生成测试任务</button>
         </div>
         <div class="manager-tabs">
           <button class="manager-tab active" type="button" data-manager-tab="overview">概览</button>
@@ -1839,7 +1966,6 @@
     const cloudPasswordButton = document.getElementById("cloudPasswordButton");
     const cloudLogoutButton = document.getElementById("cloudLogoutButton");
     const taskManagerContent = document.getElementById("taskManagerContent");
-    const seedTestTasksButton = document.getElementById("seedTestTasksButton");
     const exportDailyButton = document.getElementById("exportDailyButton");
     const exportWeeklyButton = document.getElementById("exportWeeklyButton");
     const copyReportButton = document.getElementById("copyReportButton");
@@ -2233,7 +2359,7 @@
 
     function updateTaskField(taskId, field, value) {
       const task = state.tasks.find((item) => item.id === taskId);
-      if (!task || !["title", "due", "priority", "status"].includes(field)) {
+      if (!task || !["title", "start", "due", "completedAt", "priority", "status"].includes(field)) {
         return;
       }
 
@@ -2241,6 +2367,7 @@
       if (field === "status") {
         if (task.status === "done") {
           task.progress = 100;
+          task.completedAt = task.completedAt || TODAY;
         } else if (task.status === "doing" && Number(task.progress || 0) === 0) {
           task.progress = 30;
         } else if (task.status === "todo" && task.progress === 100) {
@@ -2261,15 +2388,15 @@
       }
       const task = state.tasks.find((item) => item.id === cell.dataset.taskId);
       const field = cell.dataset.dateField;
-      if (!task || !["start", "due"].includes(field)) {
+      if (!task || !["start", "due", "completedAt"].includes(field)) {
         return;
       }
 
       normalizeTaskDates(task);
-      const originalValue = task[field] || TODAY;
+      const originalValue = task[field] || (field === "completedAt" ? "" : TODAY);
       const input = document.createElement("input");
       input.type = "date";
-      input.value = originalValue;
+      input.value = originalValue || TODAY;
       input.className = "table-task-select";
       cell.textContent = "";
       cell.appendChild(input);
@@ -2277,10 +2404,14 @@
 
       const commit = () => {
         if (!input.value) {
-          cell.textContent = originalValue;
+          cell.textContent = originalValue || "双击录入";
           return;
         }
         task[field] = input.value;
+        if (field === "completedAt") {
+          task.status = "done";
+          task.progress = 100;
+        }
         task.updatedAt = TODAY;
         state.selectedMemberId = task.memberId;
         state.selectedTaskId = task.id;
@@ -2781,6 +2912,7 @@
               <th>优先级</th>
               <th>开始时间</th>
               <th>截止日期</th>
+              <th>完成时间</th>
               <th>进度</th>
               <th>状态</th>
               <th>任务检查</th>
@@ -2800,6 +2932,7 @@
                   </td>
                   <td class="editable-date" data-date-field="start" data-task-id="${task.id}" title="双击后选择开始时间">${task.start || task.due || TODAY}</td>
                   <td class="editable-date" data-date-field="due" data-task-id="${task.id}" title="双击后选择截止日期">${task.due}</td>
+                  <td class="editable-date" data-date-field="completedAt" data-task-id="${task.id}" title="双击录入实际完成时间">${task.completedAt || "双击录入"}</td>
                   <td>
                     <div class="table-progress">
                       <div class="progress-track">
@@ -3238,12 +3371,16 @@
 
       if (task.progress === 100 && task.status !== "delayed") {
         task.status = "done";
+        task.completedAt = task.completedAt || task.updatedAt;
         inspectStatus.value = "done";
       }
       if (task.status === "done" && task.progress < 100) {
         task.progress = 100;
         progressRange.value = 100;
         progressValue.textContent = "100%";
+      }
+      if (task.status === "done") {
+        task.completedAt = task.completedAt || task.updatedAt;
       }
 
       updateMemberSnapshot(member.id, inspectNote.value, true);
@@ -3263,6 +3400,7 @@
       task.status = "done";
       task.checkNote = inspectNote.value.trim() || "已完成";
       task.updatedAt = inspectDate.value || TODAY;
+      task.completedAt = task.completedAt || task.updatedAt;
       progressRange.value = 100;
       progressValue.textContent = "100%";
       inspectStatus.value = "done";
@@ -3686,6 +3824,38 @@
       });
     }
 
+    function renderMetricBoard(items) {
+      const max = Math.max(1, ...items.map((item) => item.value));
+      return `
+        <div class="metric-board">
+          ${items.map((item) => `
+            <div class="metric-cell">
+              <span>${item.label}</span>
+              <strong>${item.value}</strong>
+              <div class="metric-line"><i style="width:${Math.max(4, Math.round(item.value / max * 100))}%; background:${item.color || "var(--primary)"};"></i></div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderAxisBars(items, maxHeight = 126) {
+      const max = Math.max(1, ...items.map((item) => item.value));
+      return `
+        <div class="simple-axis-chart">
+          <div class="axis-labels"><span>${max}</span><span>${Math.round(max / 2)}</span><span>0</span></div>
+          <div class="axis-plot">
+            ${items.map((item) => `
+              <div class="axis-bar" title="${item.label}: ${item.value}" style="height:${Math.max(4, Math.round(item.value / max * maxHeight))}px; background:${item.color || "#31a8f0"};">
+                <em>${item.shortLabel || item.label}</em>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+        <div class="chart-legend">${items.map((item) => `<span><i class="legend-dot" style="background:${item.color || "#31a8f0"}"></i>${item.label}</span>`).join("")}</div>
+      `;
+    }
+
     function renderTaskManager() {
       if (!taskManagerContent) return;
       document.querySelectorAll("[data-manager-tab]").forEach((button) => {
@@ -3807,6 +3977,133 @@
       `;
     }
 
+    function renderTaskManager() {
+      if (!taskManagerContent) return;
+      document.querySelectorAll("[data-manager-tab]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.managerTab === state.managerTab);
+      });
+
+      const visibleTasks = getManagerVisibleTasks();
+      const selectedMember = state.activeMemberFilter === "all" ? null : getMemberById(state.activeMemberFilter);
+      const metrics = {
+        total: visibleTasks.length,
+        done: visibleTasks.filter((task) => task.status === "done").length,
+        doing: visibleTasks.filter((task) => task.status === "doing").length,
+        todo: visibleTasks.filter((task) => task.status === "todo").length,
+        delayed: visibleTasks.filter((task) => task.status === "delayed" || new Date(normalizeTaskDates(task).due) < new Date(TODAY)).length,
+        avgProgress: visibleTasks.length ? Math.round(visibleTasks.reduce((sum, task) => sum + Number(task.progress || 0), 0) / visibleTasks.length) : 0,
+        dueToday: visibleTasks.filter((task) => normalizeTaskDates(task).due === TODAY && task.status !== "done").length,
+        dueThreeDays: visibleTasks.filter((task) => {
+          const due = new Date(normalizeTaskDates(task).due);
+          const limit = new Date(TODAY);
+          limit.setDate(limit.getDate() + 3);
+          return due >= new Date(TODAY) && due <= limit && task.status !== "done";
+        }).length,
+        dueSevenDays: visibleTasks.filter((task) => {
+          const due = new Date(normalizeTaskDates(task).due);
+          const limit = new Date(TODAY);
+          limit.setDate(limit.getDate() + 7);
+          return due >= new Date(TODAY) && due <= limit && task.status !== "done";
+        }).length
+      };
+      const statusItems = [
+        { label: "待开始", value: metrics.todo, color: "#31a8f0" },
+        { label: "进行中", value: metrics.doing, color: "#5bd45b" },
+        { label: "已延期", value: metrics.delayed, color: "#ff7a1a" },
+        { label: "已完成", value: metrics.done, color: "#5a55d6" }
+      ];
+      const memberItems = getManagerMemberItems();
+      const trendItems = Array.from({ length: 7 }, (_, index) => {
+        const date = getDateOffset(index - 6);
+        return {
+          label: date.slice(5),
+          value: visibleTasks.filter((task) => (task.completedAt || task.updatedAt || task.start || task.due || TODAY) <= date).length
+        };
+      });
+      const workloadDone = metrics.total ? Math.round(metrics.done / metrics.total * 100) : 0;
+      const workhourItems = [
+        { label: "工时总数", value: metrics.total * 2, color: "#31a8f0" },
+        { label: "人均任务工时", value: state.members.length ? Math.round(metrics.total * 2 / state.members.length) : 0, color: "#5bd45b" },
+        { label: "已报工任务时长", value: metrics.done * 2, color: "#ef5b5b" },
+        { label: "未报工任务时长", value: Math.max(0, metrics.total * 2 - metrics.done * 2), color: "#ef5b5b" }
+      ];
+      const timeItems = [
+        { label: "今日到期", value: metrics.dueToday, color: "#31a8f0" },
+        { label: "三天内到期", value: metrics.dueThreeDays, color: "#5bd45b" },
+        { label: "七天内到期", value: metrics.dueSevenDays, color: "#d65cff" },
+        { label: "已延期", value: metrics.delayed, color: "#ef5b5b" }
+      ];
+
+      if (state.managerTab === "statistics") {
+        const memberProgressItems = memberItems.map((item) => ({
+          ...item,
+          value: Math.round((getTasksByMember(state.members.find((member) => member.name === item.label)?.id || "").reduce((sum, task) => sum + Number(task.progress || 0), 0) || 0) / Math.max(1, item.value)),
+          color: "#31a8f0"
+        }));
+        taskManagerContent.innerHTML = `
+          <div class="chart-grid">
+            <article class="manager-card chart-card"><h3>任务进度分析</h3>${renderAxisBars(memberProgressItems)}</article>
+            <article class="manager-card chart-card"><h3>任务完成趋势</h3>${renderTrendLine(trendItems)}</article>
+            <article class="manager-card chart-card"><h3>任务状态分布</h3>${renderDonut(statusItems)}</article>
+            <article class="manager-card chart-card"><h3>任务成员分布</h3>${memberItems.length ? renderDonut(memberItems.map((item) => ({ ...item, color: item.color || "#31a8f0" }))) : `<div class="empty-chart">暂无成员数据</div>`}</article>
+          </div>
+        `;
+        return;
+      }
+
+      taskManagerContent.innerHTML = `
+        <div class="manager-layout">
+          <div class="manager-grid">
+            <article class="manager-card">
+              <h3>任务概览</h3>
+              ${renderMetricBoard([
+                { label: "总任务", value: metrics.total, color: "#31a8f0" },
+                { label: "未完成", value: metrics.todo + metrics.doing + metrics.delayed, color: "#5bd45b" },
+                { label: "待办", value: metrics.todo, color: "#5a55d6" },
+                { label: "已延期", value: metrics.delayed, color: "#ff7a1a" },
+                { label: "已完成", value: metrics.done, color: "#5a55d6" },
+                { label: "已归档", value: visibleTasks.filter((task) => task.archived).length, color: "#5bd45b" },
+                { label: "进行中", value: metrics.doing, color: "#ef5b5b" },
+                { label: "即将到期", value: metrics.dueThreeDays, color: "#ef5b5b" }
+              ])}
+            </article>
+            <article class="manager-card">
+              <h3>工时概览</h3>
+              ${renderMetricBoard(workhourItems)}
+            </article>
+            <article class="manager-card chart-card">
+              <h3>忙闲分析</h3>
+              ${renderDonut([
+                { label: "已完成任务占比", value: workloadDone, color: "#5a55d6" },
+                { label: "未完成任务占比", value: Math.max(0, 100 - workloadDone), color: "#eef2ff" }
+              ])}
+            </article>
+            <article class="manager-card chart-card">
+              <h3>成员负荷</h3>
+              ${memberItems.length ? renderAxisBars(memberItems) : `<div class="empty-chart">暂无成员数据</div>`}
+            </article>
+            <article class="manager-card chart-card">
+              <h3>任务趋势</h3>
+              ${renderTrendLine(trendItems)}
+            </article>
+            <article class="manager-card chart-card">
+              <h3>时间分析</h3>
+              ${renderDonut(timeItems)}
+            </article>
+            <article class="manager-card">
+              <h3>成员统计</h3>
+              <div class="manager-list">
+                <div class="manager-list-item"><strong>当前范围</strong><span>${selectedMember ? selectedMember.name : "全部成员"}</span></div>
+                <div class="manager-list-item"><strong>成员数量</strong><span>${state.activeMemberFilter === "all" ? state.members.length : memberItems.length}</span></div>
+                <div class="manager-list-item"><strong>任务数量</strong><span>${metrics.total}</span></div>
+                <div class="manager-list-item"><strong>平均进度</strong><span>${metrics.avgProgress}%</span></div>
+              </div>
+            </article>
+          </div>
+        </div>
+      `;
+    }
+
     function bindEvents() {
       memberForm.addEventListener("submit", addMember);
       memberColumnSelect.addEventListener("change", () => {
@@ -3852,7 +4149,6 @@
       cloudSyncButton.addEventListener("click", syncCloudBothWays);
       cloudPasswordButton.addEventListener("click", changeCloudPassword);
       cloudLogoutButton.addEventListener("click", logoutCloudAccount);
-      seedTestTasksButton.addEventListener("click", seedTestTasks);
       document.querySelectorAll("[data-manager-tab]").forEach((button) => {
         button.addEventListener("click", () => {
           state.managerTab = button.dataset.managerTab;
