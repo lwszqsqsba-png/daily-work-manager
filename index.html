@@ -1849,7 +1849,7 @@
         </div>
         <div class="split-actions">
           <button class="primary-button" id="cloudLoginButton" type="button">登录同步</button>
-          <button class="ghost-button" id="cloudRegisterButton" type="button">注册账号</button>
+          <button class="ghost-button" id="cloudRegisterButton" type="button" onclick="document.getElementById('registerDialogBackdrop')?.classList.remove('hidden')">注册账号</button>
         </div>
         <div class="button-row">
           <button class="ghost-button" id="cloudSaveButton" type="button">本地保存到云端</button>
@@ -2255,7 +2255,7 @@
       cloudEmail.disabled = false;
       cloudPassword.disabled = false;
       cloudLoginButton.disabled = !configured || online;
-      cloudRegisterButton.disabled = !configured || online;
+      cloudRegisterButton.disabled = false;
       cloudSaveButton.disabled = !online;
       cloudLoadButton.disabled = !online;
       cloudPasswordButton.disabled = !online;
@@ -2306,10 +2306,6 @@
     }
 
     function openRegisterDialog() {
-      if (!isCloudConfigured()) {
-        showToast("云端未配置，暂时无法注册");
-        return;
-      }
       registerEmail.value = cloudEmail.value.trim();
       registerPassword.value = "";
       registerPasswordConfirm.value = "";
