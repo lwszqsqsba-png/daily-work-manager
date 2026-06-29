@@ -804,8 +804,15 @@
 
     .metric-board {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .metric-cell {
+      display: grid;
+      grid-template-columns: minmax(72px, 0.75fr) 42px minmax(0, 3fr);
+      align-items: center;
+      gap: 10px;
     }
 
     .metric-cell {
@@ -821,10 +828,11 @@
 
     .metric-cell strong {
       display: block;
-      margin: 4px 0 8px;
+      margin: 0;
       color: #2158d8;
       font-size: 18px;
       line-height: 1;
+      text-align: right;
     }
 
     .metric-line {
@@ -893,6 +901,17 @@
       min-height: 4px;
       border-radius: 8px 8px 0 0;
       background: #31a8f0;
+    }
+
+    .axis-value-label {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 6px);
+      transform: translateX(-50%);
+      color: #1f2a3d;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
     }
 
     .axis-bar em {
@@ -1868,7 +1887,7 @@
           <input id="dialogStartDate" name="startDate" type="date" required>
         </div>
         <div class="field">
-          <label for="dialogDueDate">截止日期</label>
+          <label for="dialogDueDate">预计完成时间</label>
           <input id="dialogDueDate" name="dueDate" type="date" required>
         </div>
         <div class="split-actions">
@@ -2456,6 +2475,9 @@
         } else if (task.status === "todo" && task.progress === 100) {
           task.progress = 0;
         }
+        if (task.status !== "done") {
+          task.completedAt = "";
+        }
       }
       task.updatedAt = TODAY;
       state.selectedMemberId = task.memberId;
@@ -2472,6 +2494,10 @@
       const task = state.tasks.find((item) => item.id === cell.dataset.taskId);
       const field = cell.dataset.dateField;
       if (!task || !["start", "due", "completedAt"].includes(field)) {
+        return;
+      }
+      if (field === "completedAt" && task.status !== "done") {
+        showToast("任务状态为已完成后，才能录入实际完成时间");
         return;
       }
 
@@ -2994,8 +3020,8 @@
               <th>任务</th>
               <th>优先级</th>
               <th>开始时间</th>
-              <th>截止日期</th>
-              <th>完成时间</th>
+              <th>预计完成时间</th>
+              <th>实际完成时间</th>
               <th>进度</th>
               <th>状态</th>
               <th>任务检查</th>
@@ -3014,8 +3040,8 @@
                     </select>
                   </td>
                   <td class="editable-date" data-date-field="start" data-task-id="${task.id}" title="双击后选择开始时间">${task.start || task.due || TODAY}</td>
-                  <td class="editable-date" data-date-field="due" data-task-id="${task.id}" title="双击后选择截止日期">${task.due}</td>
-                  <td class="editable-date" data-date-field="completedAt" data-task-id="${task.id}" title="双击录入实际完成时间">${task.completedAt || "双击录入"}</td>
+                  <td class="editable-date" data-date-field="due" data-task-id="${task.id}" title="双击后选择预计完成时间">${task.due}</td>
+                  <td class="${task.status === "done" ? "editable-date" : ""}" data-date-field="completedAt" data-task-id="${task.id}" title="${task.status === "done" ? "双击录入实际完成时间" : "任务完成后方可录入实际完成时间"}">${task.status === "done" ? (task.completedAt || "双击录入") : statusMeta[task.status].label}</td>
                   <td>
                     <div class="table-progress">
                       <div class="progress-track">
@@ -3922,20 +3948,23 @@
       `;
     }
 
-    function renderAxisBars(items, maxHeight = 126) {
-      const max = Math.max(1, ...items.map((item) => item.value));
+    function renderAxisBars(items, maxHeight = 126, options = {}) {
+      const max = Math.max(1, Number(options.max || 0), ...items.map((item) => item.value));
+      const middleLabel = options.unit === "%" ? Math.round(max / 2) + "%" : Math.round(max / 2);
+      const topLabel = options.unit === "%" ? max + "%" : max;
       return `
         <div class="simple-axis-chart">
-          <div class="axis-labels"><span>${max}</span><span>${Math.round(max / 2)}</span><span>0</span></div>
+          <div class="axis-labels"><span>${topLabel}</span><span>${middleLabel}</span><span>0</span></div>
           <div class="axis-plot">
             ${items.map((item) => `
               <div class="axis-bar" title="${item.label}: ${item.value}" style="height:${Math.max(4, Math.round(item.value / max * maxHeight))}px; background:${item.color || "#31a8f0"};">
+                <span class="axis-value-label">${item.value}${item.unit || ""}</span>
                 <em>${item.shortLabel || item.label}</em>
               </div>
             `).join("")}
           </div>
         </div>
-        <div class="chart-legend">${items.map((item) => `<span><i class="legend-dot" style="background:${item.color || "#31a8f0"}"></i>${item.label}</span>`).join("")}</div>
+        <div class="chart-legend">${items.map((item) => `<span><i class="legend-dot" style="background:${item.color || "#31a8f0"}"></i>${item.label}${item.unit === "%" ? " 平均进度" : ""}</span>`).join("")}</div>
       `;
     }
 
@@ -4284,7 +4313,7 @@
               const labelY = Math.max(14, point.y - 10);
               return `
                 <circle class="trend-point" cx="${point.x}" cy="${point.y}" r="4.8"></circle>
-                <text class="trend-point-label" x="${labelX}" y="${labelY}" text-anchor="${labelAnchor}">${point.label} / ${point.value}件</text>
+                <text class="trend-point-label" x="${labelX}" y="${labelY}" text-anchor="${labelAnchor}">${point.value}件</text>
                 <text class="trend-date-label" x="${point.x}" y="${height - 12}" text-anchor="middle">${point.label}</text>
               `;
             }).join("")}
@@ -4352,15 +4381,16 @@
           return {
             ...item,
             value: memberTasks.length ? Math.round(memberTasks.reduce((sum, task) => sum + Number(task.progress || 0), 0) / memberTasks.length) : 0,
-            color: "#31a8f0"
+            unit: "%",
+            color: item.color
           };
         });
         taskManagerContent.innerHTML = `
           <div class="chart-grid">
-            <article class="manager-card chart-card"><h3>任务进度分析</h3>${renderAxisBars(memberProgressItems)}</article>
+            <article class="manager-card chart-card"><h3>人员平均进度</h3>${renderAxisBars(memberProgressItems, 126, { max: 100, unit: "%" })}</article>
             <article class="manager-card chart-card"><h3>任务完成趋势</h3>${renderHorizontalTrend(trendItems)}</article>
             <article class="manager-card chart-card"><h3>任务状态分布</h3>${renderDonutWithLabels(statusItems, "任务")}</article>
-            <article class="manager-card chart-card"><h3>任务成员分布</h3>${renderDonutWithLabels(memberItems, "成员")}</article>
+            <article class="manager-card chart-card"><h3>任务成员分布</h3>${renderDonutWithLabels(memberItems, "任务数")}</article>
           </div>
         `;
         return;
@@ -4404,15 +4434,6 @@
             <article class="manager-card chart-card">
               <h3>时间分析</h3>
               ${renderDonutWithLabels(timeItems, "时间")}
-            </article>
-            <article class="manager-card">
-              <h3>成员统计</h3>
-              <div class="manager-list">
-                <div class="manager-list-item"><strong>当前范围</strong><span>${selectedMember ? selectedMember.name : "全部成员"}</span></div>
-                <div class="manager-list-item"><strong>成员数量</strong><span>${state.activeMemberFilter === "all" ? state.members.length : memberItems.length}</span></div>
-                <div class="manager-list-item"><strong>任务数量</strong><span>${metrics.total}</span></div>
-                <div class="manager-list-item"><strong>平均进度</strong><span>${metrics.avgProgress}%</span></div>
-              </div>
             </article>
           </div>
         </div>
