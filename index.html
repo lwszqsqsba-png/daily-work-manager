@@ -926,7 +926,7 @@
       display: grid;
       grid-template-columns: 28px minmax(0, 1fr);
       gap: 8px;
-      min-height: 168px;
+      min-height: 190px;
       padding-top: 8px;
     }
 
@@ -945,7 +945,7 @@
       align-items: end;
       justify-content: space-around;
       gap: 10px;
-      padding: 8px 8px 24px;
+      padding: 8px 8px 46px;
       border-left: 1px solid rgba(31, 42, 61, 0.16);
       border-bottom: 1px solid rgba(31, 42, 61, 0.24);
       background: repeating-linear-gradient(
@@ -978,16 +978,15 @@
     .axis-bar em {
       position: absolute;
       left: 50%;
-      bottom: -20px;
-      width: 72px;
+      bottom: -32px;
+      width: 96px;
       transform: translateX(-50%);
       color: var(--muted);
       font-size: 10px;
       font-style: normal;
       text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      line-height: 1.15;
     }
 
     .chart-legend {
@@ -1143,6 +1142,30 @@
       color: var(--text);
       background: #fff;
       outline: none;
+    }
+
+    .start-filter {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .date-filter-input {
+      width: 132px;
+      padding: 8px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      border-radius: 999px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+    }
+
+    .start-filter:not(.is-custom) .date-filter-input,
+    .start-filter:not(.is-custom) .date-filter-separator {
+      display: none;
     }
 
     .member-task-row.is-done .task-circle {
@@ -1800,6 +1823,18 @@
         </div>
         <div class="task-filter-toolbar">
           <div class="filter-row" id="filterRow"></div>
+          <div class="start-filter" id="startFilterWrap">
+            <span>开始时间</span>
+            <select class="employee-filter-select" id="startDateFilter">
+              <option value="all">全部</option>
+              <option value="week">本周事项</option>
+              <option value="month">本月事项</option>
+              <option value="custom">定义时间内事项</option>
+            </select>
+            <input class="date-filter-input" id="customStartDate" type="date" aria-label="自定义开始日期">
+            <span class="date-filter-separator">至</span>
+            <input class="date-filter-input" id="customEndDate" type="date" aria-label="自定义结束日期">
+          </div>
           <label class="employee-filter" for="employeeFilter">
             员工筛选
             <select class="employee-filter-select" id="employeeFilter"></select>
@@ -2041,6 +2076,59 @@
     </section>
   </div>
   <div class="toast" id="toast"></div>
+  <div class="wechat-service" aria-live="polite">
+    <button
+      id="wechatServiceButton"
+      class="wechat-service-button"
+      type="button"
+      aria-expanded="false"
+      aria-controls="wechatServicePanel"
+    >
+      <span class="wechat-service-button-icon" aria-hidden="true">微</span>
+      <span>微信客服</span>
+    </button>
+
+    <section
+      id="wechatServicePanel"
+      class="wechat-service-panel"
+      hidden
+      aria-label="微信客服面板"
+    >
+      <div class="wechat-service-head">
+        <div class="wechat-service-title">
+          <strong>微信客服</strong>
+          <span>工作时间内优先回复</span>
+        </div>
+        <button
+          id="wechatServiceCloseButton"
+          type="button"
+          class="wechat-service-close"
+          aria-label="关闭微信客服"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="wechat-service-body">
+        <div class="wechat-bubble is-agent">你好，欢迎咨询。</div>
+        <div class="wechat-bubble is-agent">扫码添加微信，沟通更高效。</div>
+        <div class="wechat-bubble is-agent">也可以直接复制下方微信号。</div>
+
+        <div class="wechat-qr-card">
+          <div class="wechat-qr-placeholder">微信二维码待替换</div>
+        </div>
+
+        <div class="wechat-service-meta">
+          <span>微信号</span>
+          <strong id="wechatServiceId">wechat-id-placeholder</strong>
+        </div>
+
+        <button id="wechatServiceCopyButton" class="wechat-copy-button" type="button">
+          复制微信号
+        </button>
+      </div>
+    </section>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
@@ -2075,12 +2163,20 @@
     const defaultState = {
       activeFilter: "all",
       activeMemberFilter: "all",
+      startDateFilter: "all",
+      customStartDate: "",
+      customEndDate: "",
       memberColumns: "3",
       selectedMemberId: null,
       selectedTaskId: null,
       reportTitle: "",
       reportText: "",
       managerTab: "overview",
+      wechatService: {
+        open: false,
+        qrImage: "",
+        wechatId: "wechat-id-placeholder"
+      },
       members: [],
       tasks: []
     };
@@ -2095,9 +2191,21 @@
         return {
           ...defaultState,
           ...parsed,
+          startDateFilter: ["all", "week", "month", "custom"].includes(parsed.startDateFilter) ? parsed.startDateFilter : "all",
+          customStartDate: typeof parsed.customStartDate === "string" ? parsed.customStartDate : "",
+          customEndDate: typeof parsed.customEndDate === "string" ? parsed.customEndDate : "",
           reportTitle: typeof parsed.reportTitle === "string" ? parsed.reportTitle : "",
           reportText: typeof parsed.reportText === "string" ? parsed.reportText : "",
           managerTab: ["overview", "statistics"].includes(parsed.managerTab) ? parsed.managerTab : "overview",
+          wechatService: {
+            ...defaultState.wechatService,
+            ...(parsed.wechatService && typeof parsed.wechatService === "object" ? parsed.wechatService : {}),
+            open: false,
+            qrImage: typeof parsed?.wechatService?.qrImage === "string" ? parsed.wechatService.qrImage : "",
+            wechatId: typeof parsed?.wechatService?.wechatId === "string" && parsed.wechatService.wechatId.trim()
+              ? parsed.wechatService.wechatId.trim()
+              : defaultState.wechatService.wechatId
+          },
           members: Array.isArray(parsed.members) ? parsed.members : [],
           tasks: Array.isArray(parsed.tasks) ? parsed.tasks : []
         };
@@ -2114,6 +2222,10 @@
     const memberColumnSelect = document.getElementById("memberColumnSelect");
     const filterRow = document.getElementById("filterRow");
     const employeeFilter = document.getElementById("employeeFilter");
+    const startDateFilter = document.getElementById("startDateFilter");
+    const startFilterWrap = document.getElementById("startFilterWrap");
+    const customStartDate = document.getElementById("customStartDate");
+    const customEndDate = document.getElementById("customEndDate");
     const taskTableWrap = document.getElementById("taskTableWrap");
     const profileCard = document.getElementById("profileCard");
     const tableCaption = document.getElementById("tableCaption");
@@ -2167,6 +2279,11 @@
     const reportTitle = document.getElementById("reportTitle");
     const reportPreview = document.getElementById("reportPreview");
     const toast = document.getElementById("toast");
+    const wechatServiceButton = document.getElementById("wechatServiceButton");
+    const wechatServicePanel = document.getElementById("wechatServicePanel");
+    const wechatServiceCloseButton = document.getElementById("wechatServiceCloseButton");
+    const wechatServiceCopyButton = document.getElementById("wechatServiceCopyButton");
+    const wechatServiceId = document.getElementById("wechatServiceId");
 
     inspectDate.value = TODAY;
     let dialogMemberId = null;
@@ -2182,6 +2299,9 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         activeFilter: state.activeFilter,
         activeMemberFilter: state.activeMemberFilter,
+        startDateFilter: state.startDateFilter,
+        customStartDate: state.customStartDate,
+        customEndDate: state.customEndDate,
         memberColumns: state.memberColumns,
         selectedMemberId: state.selectedMemberId,
         selectedTaskId: state.selectedTaskId,
@@ -2200,6 +2320,9 @@
         exportedAt: new Date().toISOString(),
         activeFilter: state.activeFilter,
         activeMemberFilter: state.activeMemberFilter,
+        startDateFilter: state.startDateFilter,
+        customStartDate: state.customStartDate,
+        customEndDate: state.customEndDate,
         memberColumns: state.memberColumns,
         selectedMemberId: state.selectedMemberId,
         selectedTaskId: state.selectedTaskId,
@@ -2268,6 +2391,9 @@
       }
       state.activeFilter = typeof data.activeFilter === "string" ? data.activeFilter : "all";
       state.activeMemberFilter = typeof data.activeMemberFilter === "string" ? data.activeMemberFilter : "all";
+      state.startDateFilter = ["all", "week", "month", "custom"].includes(data.startDateFilter) ? data.startDateFilter : "all";
+      state.customStartDate = typeof data.customStartDate === "string" ? data.customStartDate : "";
+      state.customEndDate = typeof data.customEndDate === "string" ? data.customEndDate : "";
       state.memberColumns = ["1", "2", "3", "4"].includes(String(data.memberColumns)) ? String(data.memberColumns) : "3";
       state.selectedMemberId = data.selectedMemberId || (Array.isArray(data.members) && data.members[0] && data.members[0].id) || null;
       state.selectedTaskId = data.selectedTaskId || null;
@@ -2669,11 +2795,46 @@
       }
     }
 
+    function getWeekRange(dateText = TODAY) {
+      const date = new Date(dateText + "T00:00:00");
+      const day = date.getDay() || 7;
+      const start = new Date(date);
+      start.setDate(date.getDate() - day + 1);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
+    }
+
+    function getMonthRange(dateText = TODAY) {
+      const date = new Date(dateText + "T00:00:00");
+      const start = new Date(date.getFullYear(), date.getMonth(), 1);
+      const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
+    }
+
+    function getStartDateRange() {
+      if (state.startDateFilter === "week") {
+        return getWeekRange();
+      }
+      if (state.startDateFilter === "month") {
+        return getMonthRange();
+      }
+      if (state.startDateFilter === "custom" && (state.customStartDate || state.customEndDate)) {
+        const start = state.customStartDate || "0000-01-01";
+        const end = state.customEndDate || "9999-12-31";
+        return start <= end ? [start, end] : [end, start];
+      }
+      return null;
+    }
+
     function getVisibleTasks() {
+      const startRange = getStartDateRange();
       return sortTasks(state.tasks).filter((task) => {
         const statusMatched = state.activeFilter === "all" || task.status === state.activeFilter;
         const memberMatched = state.activeMemberFilter === "all" || task.memberId === state.activeMemberFilter;
-        return statusMatched && memberMatched;
+        const taskStart = normalizeTaskDates(task).start || task.due || TODAY;
+        const startMatched = !startRange || (taskStart >= startRange[0] && taskStart <= startRange[1]);
+        return statusMatched && memberMatched && startMatched;
       });
     }
 
@@ -2989,7 +3150,7 @@
       memberSection.innerHTML = `
         <section class="member-grid">
           ${state.members.map((member, index) => {
-            const tasks = getTasksByMember(member.id);
+            const tasks = getTasksByMember(member.id).filter((task) => task.status !== "done");
             const selected = member.id === state.selectedMemberId ? "selected" : "";
             const taskMarkup = [
               `<button class="member-task-add" type="button" data-add-task-member="${member.id}">
@@ -3000,7 +3161,7 @@
                 ? tasks.map((task) => {
                     const selectedTask = task.id === state.selectedTaskId ? "is-selected" : "";
                     return `
-                    <div class="member-task-row ${task.status === "done" ? "is-done" : ""} ${selectedTask}" role="button" tabindex="0" data-task-id="${task.id}" data-member-id="${member.id}">
+                    <div class="member-task-row ${selectedTask}" role="button" tabindex="0" data-task-id="${task.id}" data-member-id="${member.id}">
                       <span class="task-circle"></span>
                       <span class="member-task-title">${task.title}</span>
                       <span class="member-task-controls">
@@ -3011,7 +3172,7 @@
                     </div>
                   `;
                   }).join("")
-                : `<div class="member-task-empty">当前还没有分配任务</div>`
+                : `<div class="member-task-empty">当前没有未完成任务</div>`
             ].join("");
             return `
               <article class="member-card ${selected}" data-member-id="${member.id}" style="animation-delay:${index * 0.05}s;">
@@ -3088,6 +3249,11 @@
         </button>
       `).join("");
 
+      startDateFilter.value = ["all", "week", "month", "custom"].includes(state.startDateFilter) ? state.startDateFilter : "all";
+      customStartDate.value = state.customStartDate || "";
+      customEndDate.value = state.customEndDate || "";
+      startFilterWrap.classList.toggle("is-custom", startDateFilter.value === "custom");
+
       employeeFilter.innerHTML = `
         <option value="all">全部员工</option>
         ${state.members.map((member) => `
@@ -3112,10 +3278,43 @@
         renderTaskManager();
         renderFilters();
       }, { once: true });
+
+      startDateFilter.addEventListener("change", () => {
+        state.startDateFilter = startDateFilter.value;
+        if (state.startDateFilter !== "custom") {
+          state.customStartDate = "";
+          state.customEndDate = "";
+        }
+        saveState();
+        renderTaskTable();
+        renderTaskManager();
+        renderFilters();
+      }, { once: true });
+
+      [customStartDate, customEndDate].forEach((input) => {
+        input.addEventListener("change", () => {
+          state.startDateFilter = "custom";
+          state.customStartDate = customStartDate.value;
+          state.customEndDate = customEndDate.value;
+          saveState();
+          renderTaskTable();
+          renderTaskManager();
+          renderFilters();
+        }, { once: true });
+      });
     }
 
     function renderTaskTable() {
       const tasks = getVisibleTasks();
+      const startRange = getStartDateRange();
+      const startFilterLabel = state.startDateFilter === "week"
+        ? "本周事项"
+        : state.startDateFilter === "month"
+          ? "本月事项"
+          : state.startDateFilter === "custom" && startRange
+            ? `定义时间内事项：${startRange[0]} 至 ${startRange[1]}`
+            : "全部开始时间";
+      tableCaption.textContent = `当前显示 ${tasks.length} 项任务 · ${startFilterLabel}`;
       if (!tasks.length) {
         taskTableWrap.innerHTML = `
           <div class="empty-card">
@@ -4398,14 +4597,13 @@
       `;
     }
 
-    function getTaskDateBucket(task) {
-      return task.completedAt || task.updatedAt || task.start || task.due || TODAY;
-    }
-
     function getTrendByDateItems(tasks) {
       const map = new Map();
       tasks.forEach((task) => {
-        const label = String(getTaskDateBucket(task)).slice(0, 10);
+        if (task.status !== "done" || !task.completedAt) {
+          return;
+        }
+        const label = String(task.completedAt).slice(0, 10);
         map.set(label, (map.get(label) || 0) + 1);
       });
       return [...map.entries()]
