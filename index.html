@@ -926,7 +926,7 @@
       display: grid;
       grid-template-columns: 28px minmax(0, 1fr);
       gap: 8px;
-      min-height: 190px;
+      min-height: 206px;
       padding-top: 8px;
     }
 
@@ -945,7 +945,7 @@
       align-items: end;
       justify-content: space-around;
       gap: 10px;
-      padding: 8px 8px 46px;
+      padding: 8px 8px 58px;
       border-left: 1px solid rgba(31, 42, 61, 0.16);
       border-bottom: 1px solid rgba(31, 42, 61, 0.24);
       background: repeating-linear-gradient(
@@ -978,8 +978,8 @@
     .axis-bar em {
       position: absolute;
       left: 50%;
-      bottom: -32px;
-      width: 96px;
+      bottom: -42px;
+      width: 112px;
       transform: translateX(-50%);
       color: var(--muted);
       font-size: 10px;
@@ -1284,6 +1284,35 @@
 
     .table-progress .progress-track {
       flex: 1;
+    }
+
+    .table-progress-range {
+      flex: 1;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--progress-color, #4567f7) var(--progress-value, 0%), rgba(148, 163, 184, 0.18) 0);
+      outline: none;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    .table-progress-range::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      background: var(--progress-color, #4567f7);
+      box-shadow: 0 2px 8px rgba(31, 42, 61, 0.2);
+    }
+
+    .table-progress-range::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      background: var(--progress-color, #4567f7);
+      box-shadow: 0 2px 8px rgba(31, 42, 61, 0.2);
     }
 
     .close-button,
@@ -2162,6 +2191,7 @@
 
     const defaultState = {
       activeFilter: "all",
+      activeStatusFilters: ["todo", "doing", "delayed", "done"],
       activeMemberFilter: "all",
       startDateFilter: "all",
       customStartDate: "",
@@ -2191,6 +2221,11 @@
         return {
           ...defaultState,
           ...parsed,
+          activeStatusFilters: Array.isArray(parsed.activeStatusFilters)
+            ? parsed.activeStatusFilters.filter((status) => statusMeta[status])
+            : parsed.activeFilter && parsed.activeFilter !== "all"
+              ? [parsed.activeFilter]
+              : [...defaultState.activeStatusFilters],
           startDateFilter: ["all", "week", "month", "custom"].includes(parsed.startDateFilter) ? parsed.startDateFilter : "all",
           customStartDate: typeof parsed.customStartDate === "string" ? parsed.customStartDate : "",
           customEndDate: typeof parsed.customEndDate === "string" ? parsed.customEndDate : "",
@@ -2298,6 +2333,7 @@
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         activeFilter: state.activeFilter,
+        activeStatusFilters: state.activeStatusFilters,
         activeMemberFilter: state.activeMemberFilter,
         startDateFilter: state.startDateFilter,
         customStartDate: state.customStartDate,
@@ -2319,6 +2355,7 @@
         version: 2,
         exportedAt: new Date().toISOString(),
         activeFilter: state.activeFilter,
+        activeStatusFilters: state.activeStatusFilters,
         activeMemberFilter: state.activeMemberFilter,
         startDateFilter: state.startDateFilter,
         customStartDate: state.customStartDate,
@@ -2390,6 +2427,14 @@
         return false;
       }
       state.activeFilter = typeof data.activeFilter === "string" ? data.activeFilter : "all";
+      state.activeStatusFilters = Array.isArray(data.activeStatusFilters)
+        ? data.activeStatusFilters.filter((status) => statusMeta[status])
+        : data.activeFilter && data.activeFilter !== "all"
+          ? [data.activeFilter]
+          : [...defaultState.activeStatusFilters];
+      if (!state.activeStatusFilters.length) {
+        state.activeStatusFilters = [...defaultState.activeStatusFilters];
+      }
       state.activeMemberFilter = typeof data.activeMemberFilter === "string" ? data.activeMemberFilter : "all";
       state.startDateFilter = ["all", "week", "month", "custom"].includes(data.startDateFilter) ? data.startDateFilter : "all";
       state.customStartDate = typeof data.customStartDate === "string" ? data.customStartDate : "";
@@ -2727,6 +2772,32 @@
       render();
     }
 
+    function updateTaskProgress(taskId, value) {
+      const task = state.tasks.find((item) => item.id === taskId);
+      if (!task) {
+        return;
+      }
+      const progress = Math.max(0, Math.min(100, Number(value) || 0));
+      task.progress = progress;
+      if (progress >= 100) {
+        task.status = "done";
+        task.completedAt = task.completedAt || TODAY;
+      } else if (task.status === "done") {
+        task.status = progress > 0 ? "doing" : "todo";
+        task.completedAt = "";
+      } else if (progress > 0 && task.status === "todo") {
+        task.status = "doing";
+      } else if (progress === 0 && task.status === "doing") {
+        task.status = "todo";
+      }
+      task.updatedAt = TODAY;
+      state.selectedMemberId = task.memberId;
+      state.selectedTaskId = task.id;
+      updateMemberSnapshot(task.memberId);
+      saveState();
+      render();
+    }
+
     function openDateEditor(cell) {
       if (cell.querySelector("input")) {
         return;
@@ -2829,8 +2900,11 @@
 
     function getVisibleTasks() {
       const startRange = getStartDateRange();
+      const selectedStatuses = Array.isArray(state.activeStatusFilters) && state.activeStatusFilters.length
+        ? state.activeStatusFilters
+        : defaultState.activeStatusFilters;
       return sortTasks(state.tasks).filter((task) => {
-        const statusMatched = state.activeFilter === "all" || task.status === state.activeFilter;
+        const statusMatched = selectedStatuses.includes(task.status);
         const memberMatched = state.activeMemberFilter === "all" || task.memberId === state.activeMemberFilter;
         const taskStart = normalizeTaskDates(task).start || task.due || TODAY;
         const startMatched = !startRange || (taskStart >= startRange[0] && taskStart <= startRange[1]);
@@ -3243,8 +3317,13 @@
         state.activeMemberFilter = "all";
       }
 
+      const selectedStatuses = Array.isArray(state.activeStatusFilters) && state.activeStatusFilters.length
+        ? state.activeStatusFilters
+        : defaultState.activeStatusFilters;
+      const allStatusSelected = defaultState.activeStatusFilters.every((status) => selectedStatuses.includes(status));
+
       filterRow.innerHTML = filterOptions.map((filter) => `
-        <button class="filter-chip ${state.activeFilter === filter.id ? "active" : ""}" type="button" data-filter="${filter.id}">
+        <button class="filter-chip ${filter.id === "all" ? (allStatusSelected ? "active" : "") : selectedStatuses.includes(filter.id) ? "active" : ""}" type="button" data-filter="${filter.id}">
           ${filter.label}
         </button>
       `).join("");
@@ -3263,7 +3342,22 @@
 
       filterRow.querySelectorAll(".filter-chip").forEach((chip) => {
         chip.addEventListener("click", () => {
-          state.activeFilter = chip.dataset.filter;
+          const filter = chip.dataset.filter;
+          if (filter === "all") {
+            state.activeStatusFilters = [...defaultState.activeStatusFilters];
+            state.activeFilter = "all";
+          } else {
+            const current = new Set(Array.isArray(state.activeStatusFilters) ? state.activeStatusFilters : defaultState.activeStatusFilters);
+            if (current.has(filter) && current.size > 1) {
+              current.delete(filter);
+            } else {
+              current.add(filter);
+            }
+            state.activeStatusFilters = [...current].filter((status) => statusMeta[status]);
+            state.activeFilter = defaultState.activeStatusFilters.every((status) => state.activeStatusFilters.includes(status))
+              ? "all"
+              : state.activeStatusFilters[0] || "all";
+          }
           saveState();
           renderTaskTable();
           renderTaskManager();
@@ -3357,10 +3451,8 @@
                   <td class="${task.status === "done" ? "editable-date" : ""}" data-date-field="completedAt" data-task-id="${task.id}" title="${task.status === "done" ? "双击录入实际完成时间" : "任务完成后方可录入实际完成时间"}">${task.status === "done" ? (task.completedAt || "双击录入") : statusMeta[task.status].label}</td>
                   <td>
                     <div class="table-progress">
-                      <div class="progress-track">
-                        <span class="progress-fill" style="width:${task.progress}%; background:${task.status === "delayed" ? "#ef5b5b" : task.status === "done" ? "#1fa97c" : "#4567f7"};"></span>
-                      </div>
-                      <strong>${task.progress}%</strong>
+                      <input class="table-progress-range" type="range" min="0" max="100" step="5" value="${task.progress}" data-progress-task="${task.id}" style="--progress-value:${task.progress}%; --progress-color:${task.status === "delayed" ? "#ef5b5b" : task.status === "done" ? "#1fa97c" : "#4567f7"};" aria-label="拖拽修改任务进度">
+                      <strong data-progress-value="${task.id}">${task.progress}%</strong>
                     </div>
                   </td>
                   <td>
@@ -3391,6 +3483,22 @@
         select.addEventListener("change", (event) => {
           event.stopPropagation();
           updateTaskField(select.dataset.taskId, select.dataset.taskSelect, select.value);
+        });
+      });
+      taskTableWrap.querySelectorAll("[data-progress-task]").forEach((range) => {
+        range.addEventListener("click", (event) => event.stopPropagation());
+        range.addEventListener("dblclick", (event) => event.stopPropagation());
+        range.addEventListener("input", (event) => {
+          event.stopPropagation();
+          range.style.setProperty("--progress-value", range.value + "%");
+          const valueNode = taskTableWrap.querySelector(`[data-progress-value="${range.dataset.progressTask}"]`);
+          if (valueNode) {
+            valueNode.textContent = range.value + "%";
+          }
+        });
+        range.addEventListener("change", (event) => {
+          event.stopPropagation();
+          updateTaskProgress(range.dataset.progressTask, range.value);
         });
       });
       taskTableWrap.querySelectorAll("[data-date-field]").forEach((cell) => {
@@ -3610,6 +3718,8 @@
         status,
         progress: status === "done" ? 100 : status === "doing" ? 30 : 0,
         checkNote: "",
+        completedAt: status === "done" ? TODAY : "",
+        createdAt: TODAY,
         updatedAt: TODAY
       };
 
@@ -4272,7 +4382,7 @@
             ${items.map((item) => `
               <div class="axis-bar" title="${item.label}: ${item.value}" style="height:${Math.max(4, Math.round(item.value / max * maxHeight))}px; background:${item.color || "#31a8f0"};">
                 <span class="axis-value-label">${item.value}${item.unit || ""}</span>
-                <em>${item.shortLabel || item.label}</em>
+                <em>${item.label}</em>
               </div>
             `).join("")}
           </div>
@@ -4612,6 +4722,18 @@
         .map(([label, value]) => ({ label: label.slice(5), value, color: "#31a8f0" }));
     }
 
+    function getCreatedTrendByDateItems(tasks) {
+      const map = new Map();
+      tasks.forEach((task) => {
+        const label = String(task.createdAt || task.start || task.updatedAt || task.due || TODAY).slice(0, 10);
+        map.set(label, (map.get(label) || 0) + 1);
+      });
+      return [...map.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(-7)
+        .map(([label, value]) => ({ label: label.slice(5), value, color: "#31a8f0" }));
+    }
+
     function renderHorizontalTrend(items) {
       if (!items.length) {
         return `<div class="empty-chart">暂无趋势数据</div>`;
@@ -4699,7 +4821,8 @@
         { label: "已完成", value: metrics.done, color: "#5a55d6" }
       ];
       const memberItems = getFilteredMemberItems(visibleTasks);
-      const trendItems = getTrendByDateItems(visibleTasks);
+      const completionTrendItems = getTrendByDateItems(visibleTasks);
+      const createdTrendItems = getCreatedTrendByDateItems(visibleTasks);
       const workloadDone = metrics.total ? Math.round(metrics.done / metrics.total * 100) : 0;
       const workhourItems = [
         { label: "工时总数", value: metrics.total * 2, color: "#31a8f0" },
@@ -4728,7 +4851,7 @@
         taskManagerContent.innerHTML = `
           <div class="chart-grid">
             <article class="manager-card chart-card"><h3>人员平均进度</h3>${renderAxisBars(memberProgressItems, 126, { max: 100, unit: "%" })}</article>
-            <article class="manager-card chart-card"><h3>任务完成趋势</h3>${renderHorizontalTrend(trendItems)}</article>
+            <article class="manager-card chart-card"><h3>任务完成趋势</h3>${renderHorizontalTrend(completionTrendItems)}</article>
             <article class="manager-card chart-card"><h3>任务状态分布</h3>${renderDonutWithLabels(statusItems, "任务")}</article>
             <article class="manager-card chart-card"><h3>任务成员分布</h3>${renderDonutWithLabels(memberItems, "任务数")}</article>
           </div>
@@ -4766,7 +4889,7 @@
             </article>
             <article class="manager-card chart-card">
               <h3>任务趋势</h3>
-              ${renderHorizontalTrend(trendItems)}
+              ${renderHorizontalTrend(createdTrendItems)}
             </article>
             <article class="manager-card chart-card">
               <h3>时间分析</h3>
