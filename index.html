@@ -2165,7 +2165,13 @@
     const SUPABASE_URL = "https://eseeufpiioaqrpnincua.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_ahuOq3OZ6FQxwJIYzwuXfw_lc4cvf4L";
     const CLOUD_TABLE = "work_manager_states";
-    const TODAY = new Date().toISOString().slice(0, 10);
+
+    function getLocalDateString(date = new Date()) {
+      const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return localTime.toISOString().slice(0, 10);
+    }
+
+    const TODAY = getLocalDateString();
 
     const statusMeta = {
       todo: { label: "待开始", className: "status-todo" },
@@ -2681,9 +2687,9 @@
     }
 
     function getDateOffset(days) {
-      const date = new Date(TODAY);
+      const date = new Date(TODAY + "T00:00:00");
       date.setDate(date.getDate() + days);
-      return date.toISOString().slice(0, 10);
+      return getLocalDateString(date);
     }
 
     function normalizeTaskDates(task) {
@@ -2694,6 +2700,38 @@
         task.due = task.start || TODAY;
       }
       return task;
+    }
+
+    function normalizeTaskLifecycle(task, completionDate = TODAY) {
+      task.progress = Math.max(0, Math.min(100, Number(task.progress || 0)));
+      if (task.status === "done" || task.progress >= 100) {
+        task.status = "done";
+        task.progress = 100;
+        task.completedAt = task.completedAt || completionDate;
+        return task;
+      }
+
+      task.completedAt = "";
+      if (task.status === "todo") {
+        task.progress = 0;
+      } else if (task.status === "doing") {
+        task.progress = Math.max(5, Math.min(95, task.progress || 30));
+      } else if (task.status === "delayed") {
+        task.progress = Math.min(95, task.progress);
+      }
+      return task;
+    }
+
+    function getEffectiveTaskStatus(task) {
+      normalizeTaskDates(task);
+      if (task.status !== "done" && task.due < TODAY) {
+        return "delayed";
+      }
+      return task.status;
+    }
+
+    function isTaskDateRangeValid(start, due) {
+      return Boolean(start && due && start <= due);
     }
 
     function sortTasks(tasks) {
@@ -2708,7 +2746,7 @@
         if (priorityCompare !== 0) {
           return priorityCompare;
         }
-        return statusScore[a.status] - statusScore[b.status];
+        return statusScore[getEffectiveTaskStatus(a)] - statusScore[getEffectiveTaskStatus(b)];
       });
     }
 
@@ -2752,17 +2790,14 @@
 
       task[field] = typeof value === "string" ? value.trim() : value;
       if (field === "status") {
-        if (task.status === "done") {
-          task.progress = 100;
-          task.completedAt = task.completedAt || TODAY;
-        } else if (task.status === "doing" && Number(task.progress || 0) === 0) {
-          task.progress = 30;
-        } else if (task.status === "todo" && task.progress === 100) {
+        if (task.status === "todo") {
           task.progress = 0;
+        } else if (task.status === "doing" && (Number(task.progress || 0) <= 0 || Number(task.progress || 0) >= 100)) {
+          task.progress = 30;
+        } else if (task.status === "delayed" && Number(task.progress || 0) >= 100) {
+          task.progress = 95;
         }
-        if (task.status !== "done") {
-          task.completedAt = "";
-        }
+        normalizeTaskLifecycle(task, TODAY);
       }
       task.updatedAt = TODAY;
       state.selectedMemberId = task.memberId;
@@ -2781,15 +2816,14 @@
       task.progress = progress;
       if (progress >= 100) {
         task.status = "done";
-        task.completedAt = task.completedAt || TODAY;
       } else if (task.status === "done") {
         task.status = progress > 0 ? "doing" : "todo";
-        task.completedAt = "";
       } else if (progress > 0 && task.status === "todo") {
         task.status = "doing";
       } else if (progress === 0 && task.status === "doing") {
         task.status = "todo";
       }
+      normalizeTaskLifecycle(task, TODAY);
       task.updatedAt = TODAY;
       state.selectedMemberId = task.memberId;
       state.selectedTaskId = task.id;
@@ -2825,6 +2859,13 @@
       const commit = () => {
         if (!input.value) {
           cell.textContent = originalValue || "双击录入";
+          return;
+        }
+        const nextStart = field === "start" ? input.value : task.start;
+        const nextDue = field === "due" ? input.value : task.due;
+        if ((field === "start" || field === "due") && !isTaskDateRangeValid(nextStart, nextDue)) {
+          showToast("预计完成时间不能早于开始时间");
+          cell.textContent = originalValue;
           return;
         }
         task[field] = input.value;
@@ -2904,7 +2945,7 @@
         ? state.activeStatusFilters
         : defaultState.activeStatusFilters;
       return sortTasks(state.tasks).filter((task) => {
-        const statusMatched = selectedStatuses.includes(task.status);
+        const statusMatched = selectedStatuses.includes(getEffectiveTaskStatus(task));
         const memberMatched = state.activeMemberFilter === "all" || task.memberId === state.activeMemberFilter;
         const taskStart = normalizeTaskDates(task).start || task.due || TODAY;
         const startMatched = !startRange || (taskStart >= startRange[0] && taskStart <= startRange[1]);
@@ -2926,7 +2967,7 @@
       if (!tasks.length) {
         return "todo";
       }
-      if (tasks.some((task) => task.status === "delayed")) {
+      if (tasks.some((task) => getEffectiveTaskStatus(task) === "delayed")) {
         return "delayed";
       }
       if (tasks.some((task) => task.status === "doing")) {
@@ -3437,6 +3478,7 @@
           <tbody>
             ${tasks.map((task) => {
               const member = getMemberById(task.memberId);
+              const effectiveStatus = getEffectiveTaskStatus(task);
               return `
                 <tr data-task-id="${task.id}" data-member-id="${task.memberId}" class="${task.id === state.selectedTaskId ? "selected-row" : ""}">
                   <td>${member ? member.name : "未分配"}</td>
@@ -3451,13 +3493,13 @@
                   <td class="${task.status === "done" ? "editable-date" : ""}" data-date-field="completedAt" data-task-id="${task.id}" title="${task.status === "done" ? "双击录入实际完成时间" : "任务完成后方可录入实际完成时间"}">${task.status === "done" ? (task.completedAt || "双击录入") : statusMeta[task.status].label}</td>
                   <td>
                     <div class="table-progress">
-                      <input class="table-progress-range" type="range" min="0" max="100" step="5" value="${task.progress}" data-progress-task="${task.id}" style="--progress-value:${task.progress}%; --progress-color:${task.status === "delayed" ? "#ef5b5b" : task.status === "done" ? "#1fa97c" : "#4567f7"};" aria-label="拖拽修改任务进度">
+                      <input class="table-progress-range" type="range" min="0" max="100" step="5" value="${task.progress}" data-progress-task="${task.id}" style="--progress-value:${task.progress}%; --progress-color:${effectiveStatus === "delayed" ? "#ef5b5b" : effectiveStatus === "done" ? "#1fa97c" : "#4567f7"};" aria-label="拖拽修改任务进度">
                       <strong data-progress-value="${task.id}">${task.progress}%</strong>
                     </div>
                   </td>
                   <td>
                     <select class="table-task-select" data-task-select="status" data-task-id="${task.id}" aria-label="修改状态">
-                      ${renderSelectOptions(statusMeta, task.status)}
+                      ${renderSelectOptions(statusMeta, effectiveStatus)}
                     </select>
                   </td>
                   <td><button class="check-task-button" type="button" data-check-task="${task.id}">检查</button></td>
@@ -3707,6 +3749,10 @@
         showToast("请完整填写任务信息");
         return null;
       }
+      if (!isTaskDateRangeValid(start, due)) {
+        showToast("预计完成时间不能早于开始时间");
+        return null;
+      }
 
       const newTask = {
         id: "t" + Date.now(),
@@ -3722,6 +3768,7 @@
         createdAt: TODAY,
         updatedAt: TODAY
       };
+      normalizeTaskLifecycle(newTask, TODAY);
 
       state.tasks.unshift(newTask);
       state.selectedMemberId = memberId;
@@ -3857,19 +3904,24 @@
           showToast("请完整填写任务信息");
           return;
         }
+        if (!isTaskDateRangeValid(start, due)) {
+          showToast("预计完成时间不能早于开始时间");
+          return;
+        }
 
         task.title = title;
         task.start = start;
         task.due = due;
         task.priority = priority;
         task.status = status;
-        if (task.status === "done") {
-          task.progress = 100;
-        } else if (task.status === "doing" && Number(task.progress || 0) === 0) {
-          task.progress = 30;
-        } else if (task.status === "todo" && task.progress === 100) {
+        if (task.status === "todo") {
           task.progress = 0;
+        } else if (task.status === "doing" && (Number(task.progress || 0) <= 0 || Number(task.progress || 0) >= 100)) {
+          task.progress = 30;
+        } else if (task.status === "delayed" && Number(task.progress || 0) >= 100) {
+          task.progress = 95;
         }
+        normalizeTaskLifecycle(task, TODAY);
         task.updatedAt = TODAY;
         state.selectedMemberId = task.memberId;
         state.selectedTaskId = task.id;
@@ -3900,20 +3952,10 @@
       task.status = inspectStatus.value;
       task.checkNote = inspectNote.value.trim();
       task.updatedAt = inspectDate.value || TODAY;
-
-      if (task.progress === 100 && task.status !== "delayed") {
-        task.status = "done";
-        task.completedAt = task.completedAt || task.updatedAt;
-        inspectStatus.value = "done";
-      }
-      if (task.status === "done" && task.progress < 100) {
-        task.progress = 100;
-        progressRange.value = 100;
-        progressValue.textContent = "100%";
-      }
-      if (task.status === "done") {
-        task.completedAt = task.completedAt || task.updatedAt;
-      }
+      normalizeTaskLifecycle(task, task.updatedAt);
+      inspectStatus.value = task.status;
+      progressRange.value = task.progress;
+      progressValue.textContent = task.progress + "%";
 
       updateMemberSnapshot(member.id, inspectNote.value, true);
       saveState();
@@ -4790,12 +4832,12 @@
 
       const visibleTasks = getVisibleTasks();
       const selectedMember = state.activeMemberFilter === "all" ? null : getMemberById(state.activeMemberFilter);
-      const isDelayedForMetrics = (task) => task.status !== "done" && (task.status === "delayed" || new Date(normalizeTaskDates(task).due) < new Date(TODAY));
+      const isDelayedForMetrics = (task) => getEffectiveTaskStatus(task) === "delayed";
       const metrics = {
         total: visibleTasks.length,
-        done: visibleTasks.filter((task) => task.status === "done").length,
-        doing: visibleTasks.filter((task) => task.status === "doing" && !isDelayedForMetrics(task)).length,
-        todo: visibleTasks.filter((task) => task.status === "todo" && !isDelayedForMetrics(task)).length,
+        done: visibleTasks.filter((task) => getEffectiveTaskStatus(task) === "done").length,
+        doing: visibleTasks.filter((task) => getEffectiveTaskStatus(task) === "doing").length,
+        todo: visibleTasks.filter((task) => getEffectiveTaskStatus(task) === "todo").length,
         delayed: visibleTasks.filter(isDelayedForMetrics).length,
         avgProgress: visibleTasks.length ? Math.round(visibleTasks.reduce((sum, task) => sum + Number(task.progress || 0), 0) / visibleTasks.length) : 0,
         dueToday: visibleTasks.filter((task) => normalizeTaskDates(task).due === TODAY && task.status !== "done").length
@@ -4971,6 +5013,14 @@
     }
 
     function render() {
+      if (!Array.isArray(state.activeStatusFilters) || !state.activeStatusFilters.length) {
+        state.activeStatusFilters = [...defaultState.activeStatusFilters];
+      }
+      state.tasks.forEach((task) => {
+        normalizeTaskDates(task);
+        task.createdAt = task.createdAt || task.start || task.updatedAt || TODAY;
+        normalizeTaskLifecycle(task, task.completedAt || task.updatedAt || task.due || TODAY);
+      });
       ensureSelection();
       state.members.forEach((member) => updateMemberSnapshot(member.id));
       tableCaption.textContent = "";
